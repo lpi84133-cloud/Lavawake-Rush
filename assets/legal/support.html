@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Support - Lavawake Rush</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #ffffff; color: #000000; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 24px 20px 56px;
+    max-width: 720px;
+    margin: 0 auto;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 25px; margin: 0 0 6px; letter-spacing: -0.4px; }
+  .sub { margin: 0 0 22px; }
+  label { display: block; font-size: 13px; font-weight: 700; margin: 18px 0 7px; }
+  input, textarea {
+    width: 100%;
+    font: inherit;
+    color: #000000;
+    background: #ffffff;
+    border: 1px solid #cfcfcf;
+    border-radius: 10px;
+    padding: 12px 13px;
+    outline: none;
+  }
+  input:focus, textarea:focus { border-color: #000000; }
+  textarea { min-height: 132px; resize: vertical; }
+  button {
+    margin-top: 22px;
+    width: 100%;
+    font: inherit;
+    font-weight: 700;
+    color: #ffffff;
+    background: #000000;
+    border: 0;
+    border-radius: 10px;
+    padding: 15px 16px;
+  }
+  button:active { opacity: 0.82; }
+  .hint { font-size: 13px; opacity: 0.7; margin-top: 14px; }
+  .card {
+    margin-top: 26px;
+    padding: 16px 18px;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    background: #fafafa;
+  }
+  .card p { margin: 4px 0; }
+  .error { color: #000000; font-weight: 700; font-size: 13px; margin-top: 10px; display: none; }
+  a { color: #000000; }
+</style>
+</head>
+<body>
+  <h1>Support for Lavawake Rush</h1>
+  <p class="sub">Fill out the form below to ask a question or submit a request. Your message opens in your
+  mail app, so it works even while you are offline.</p>
+
+  <label for="email">Your email</label>
+  <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" />
+
+  <label for="question">Question</label>
+  <textarea id="question" placeholder="Describe your question or the problem you ran into."></textarea>
+
+  <div class="error" id="error">Please enter your email and your question.</div>
+  <button id="send" type="button">Send</button>
+  <p class="hint">We usually reply within a few business days.</p>
+
+  <div class="card">
+    <p><strong>Direct email:</strong> <a href="mailto:support@lavawakerush.com">support@lavawakerush.com</a></p>
+    <p><strong>App:</strong> Lavawake Rush</p>
+  </div>
+
+  <script>
+    document.getElementById('send').addEventListener('click', function () {
+      var email = document.getElementById('email').value.trim();
+      var question = document.getElementById('question').value.trim();
+      var error = document.getElementById('error');
+      if (!email || !question) {
+        error.style.display = 'block';
+        return;
+      }
+      error.style.display = 'none';
+      var body = question + '\n\n---\nReply to: ' + email + '\nApp: Lavawake Rush';
+      window.location.href =
+        'mailto:support@lavawakerush.com?subject=' +
+        encodeURIComponent('Lavawake Rush support request') +
+        '&body=' + encodeURIComponent(body);
+    });
+  </script>
+</body>
+</html>
