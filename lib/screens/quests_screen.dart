@@ -92,7 +92,7 @@ class _QuestsScreenState extends State<QuestsScreen> {
               crossAxisCount: 2,
               mainAxisSpacing: Dim.m,
               crossAxisSpacing: Dim.m,
-              childAspectRatio: 2.5,
+              childAspectRatio: 3.0,
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 for (var i = 0; i < quests.length; i++)
@@ -128,14 +128,14 @@ class _QuestCard extends StatelessWidget {
         : quest.def.rewardKind.color;
 
     return GlassPanel(
-          padding: const EdgeInsets.all(Dim.m),
+          padding: const EdgeInsets.symmetric(horizontal: Dim.m, vertical: Dim.s),
           accent: accent,
           selected: quest.complete && !quest.claimed,
           child: Row(
             children: [
               CircularPercentIndicator(
-                radius: 40,
-                lineWidth: 6,
+                radius: 34,
+                lineWidth: 5,
                 percent: quest.ratio,
                 animation: true,
                 animationDuration: 720,
@@ -161,8 +161,9 @@ class _QuestCard extends StatelessWidget {
                   children: [
                     Text(
                       quest.def.title,
-                      maxLines: 2,
-                      style: AppText.subtitle.copyWith(fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.subtitle.copyWith(fontSize: 13),
                     ),
                     const SizedBox(height: 5),
                     Text(

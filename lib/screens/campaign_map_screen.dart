@@ -226,10 +226,10 @@ class _RegionCard extends StatelessWidget {
                               opacity: focused ? 1.0 : 0.0,
                               duration: Dim.normal,
                               child: Padding(
-                                padding: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.only(top: 3),
                                 child: Text(
                                   region.description,
-                                  maxLines: 2,
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppText.body14.copyWith(
                                     fontSize: 10.5,
@@ -240,7 +240,7 @@ class _RegionCard extends StatelessWidget {
                             )
                           : const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: Dim.s),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Expanded(

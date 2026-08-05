@@ -421,7 +421,7 @@ class _UtilityRail extends StatelessWidget {
         const Spacer(),
         for (final item in items)
           Padding(
-            padding: const EdgeInsets.only(left: Dim.s),
+            padding: const EdgeInsets.only(left: 5),
             child: _RailButton(
               icon: item.$1,
               label: item.$2,
@@ -448,7 +448,7 @@ class _RailButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(99),
           color: Palette.surfaceRaised.withValues(alpha: 0.6),

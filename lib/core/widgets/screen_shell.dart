@@ -119,7 +119,7 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        ?trailing,
+        if (trailing != null) Flexible(fit: FlexFit.loose, child: trailing!),
         for (final action in actions) ...[const SizedBox(width: Dim.s), action],
       ],
     ).animate().fadeIn(duration: 260.ms).slideY(begin: -0.18, curve: Curves.easeOutCubic);

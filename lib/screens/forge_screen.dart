@@ -174,7 +174,7 @@ class _ForgeScreenState extends State<ForgeScreen> {
           const SizedBox(width: Dim.l),
           Expanded(
             child: GlassPanel(
-              padding: const EdgeInsets.all(Dim.l),
+              padding: const EdgeInsets.all(Dim.m),
               accent: recipe.to.color,
               child: Column(
                 children: [
@@ -259,16 +259,20 @@ class _ForgeScreenState extends State<ForgeScreen> {
                             : null,
                       ),
                       const SizedBox(width: Dim.m),
-                      Text(
-                        maxBatches == 0
-                            ? 'Not enough ${recipe.from.label.toLowerCase()}'
-                            : 'up to $maxBatches',
-                        style: AppText.body14.copyWith(
-                          fontSize: 11,
-                          color: maxBatches == 0 ? Palette.danger : Palette.textMuted,
+                      Expanded(
+                        child: Text(
+                          maxBatches == 0
+                              ? 'Not enough ${recipe.from.label.toLowerCase()}'
+                              : 'up to $maxBatches',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.body14.copyWith(
+                            fontSize: 11,
+                            color: maxBatches == 0 ? Palette.danger : Palette.textMuted,
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: Dim.s),
                       LavaButton(
                         label: 'Fire the forge',
                         icon: Icons.bolt_rounded,

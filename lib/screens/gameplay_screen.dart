@@ -708,31 +708,37 @@ class _IntroOverlay extends StatelessWidget {
         child: ColoredBox(
           color: Palette.voidBlack.withValues(alpha: 0.66),
           child: Center(
-            child: GlassPanel(
-              padding: const EdgeInsets.symmetric(horizontal: Dim.xl, vertical: Dim.l),
-              accent: engine.region.accent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    engine.config.endless ? 'ENDLESS RUSH' : engine.region.name.toUpperCase(),
-                    style: AppText.eyebrow.copyWith(color: engine.region.accent),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Dim.l),
+                child: GlassPanel(
+                  padding: const EdgeInsets.symmetric(horizontal: Dim.l, vertical: Dim.m),
+                  accent: engine.region.accent,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        engine.config.endless ? 'ENDLESS RUSH' : engine.region.name.toUpperCase(),
+                        style: AppText.eyebrow.copyWith(color: engine.region.accent),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        level?.name ?? 'Caldera Prime',
+                        style: AppText.title.copyWith(fontSize: 26),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: Dim.m),
+                      Text(
+                        'Drag anywhere to steer the flow. Hold contact to melt what you touch.',
+                        textAlign: TextAlign.center,
+                        style: AppText.body14,
+                      ),
+                      const SizedBox(height: Dim.l),
+                      LavaButton(label: 'Tap to begin', icon: Icons.touch_app_rounded, onPressed: onBegin),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    level?.name ?? 'Caldera Prime',
-                    style: AppText.title.copyWith(fontSize: 26),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: Dim.m),
-                  Text(
-                    'Drag anywhere to steer the flow. Hold contact to melt what you touch.',
-                    textAlign: TextAlign.center,
-                    style: AppText.body14,
-                  ),
-                  const SizedBox(height: Dim.l),
-                  LavaButton(label: 'Tap to begin', icon: Icons.touch_app_rounded, onPressed: onBegin),
-                ],
+                ),
               ),
             ),
           ),
@@ -1006,7 +1012,7 @@ class _ChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = choice.branch.color;
     return GlassPanel(
-          padding: const EdgeInsets.all(Dim.l),
+          padding: const EdgeInsets.all(Dim.m),
           accent: accent,
           onTap: onPick,
           child: Column(

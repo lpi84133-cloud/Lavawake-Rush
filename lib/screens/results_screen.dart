@@ -70,7 +70,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             intensity: victory ? 1.2 : 0.7,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(Dim.l),
+                padding: const EdgeInsets.fromLTRB(Dim.l, Dim.m, Dim.l, Dim.m),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -300,39 +300,58 @@ class _PerformanceGrid extends StatelessWidget {
           ),
           const SizedBox(height: Dim.m),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 4,
-              mainAxisSpacing: Dim.s,
-              crossAxisSpacing: Dim.s,
-              childAspectRatio: 1.5,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                for (var i = 0; i < entries.length; i++)
-                  FlatPanel(
-                        padding: const EdgeInsets.all(9),
-                        accent: entries[i].$4,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Icon(entries[i].$1, size: 14, color: entries[i].$4),
-                            Text(
-                              entries[i].$3,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.numeric.copyWith(fontSize: 17),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const crossCount = 4;
+                const rowCount = 2;
+                const spacing = Dim.s;
+                final tileW = (constraints.maxWidth - (crossCount - 1) * spacing) / crossCount;
+                final tileH = (constraints.maxHeight - (rowCount - 1) * spacing) / rowCount;
+                final ratio = tileW / tileH;
+                return GridView.count(
+                  crossAxisCount: crossCount,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  childAspectRatio: ratio,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    for (var i = 0; i < entries.length; i++)
+                      FlatPanel(
+                            padding: const EdgeInsets.all(6),
+                            accent: entries[i].$4,
+                            child: LayoutBuilder(
+                              builder: (ctx, tc) => FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  width: tc.maxWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Icon(entries[i].$1, size: 12, color: entries[i].$4),
+                                      Text(
+                                        entries[i].$3,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppText.numeric.copyWith(fontSize: 15),
+                                      ),
+                                      Text(
+                                        entries[i].$2.toUpperCase(),
+                                        style: AppText.eyebrow.copyWith(fontSize: 7.5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                            Text(
-                              entries[i].$2.toUpperCase(),
-                              style: AppText.eyebrow.copyWith(fontSize: 8),
-                            ),
-                          ],
-                        ),
-                      )
-                      .animate()
-                      .fadeIn(delay: (i * 45).ms, duration: 280.ms)
-                      .slideY(begin: 0.2, curve: Curves.easeOutCubic),
-              ],
+                          )
+                          .animate()
+                          .fadeIn(delay: (i * 45).ms, duration: 280.ms)
+                          .slideY(begin: 0.2, curve: Curves.easeOutCubic),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -408,7 +427,7 @@ class _CruciblePrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
-      padding: const EdgeInsets.all(Dim.m),
+      padding: const EdgeInsets.symmetric(horizontal: Dim.m, vertical: Dim.s),
       accent: Palette.ember,
       onTap: () {
         context.read<AudioService>().confirm();

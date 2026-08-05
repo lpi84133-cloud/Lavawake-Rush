@@ -49,7 +49,7 @@ class FormsCodexScreen extends StatelessWidget {
                 crossAxisCount: 2,
                 mainAxisSpacing: Dim.s,
                 crossAxisSpacing: Dim.s,
-                childAspectRatio: 2.7,
+                childAspectRatio: 3.1,
               ),
               itemCount: GameData.forms.length,
               itemBuilder: (context, index) => _FormCard(form: GameData.forms[index], index: index),

@@ -171,7 +171,7 @@ class _LessonView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
-      padding: const EdgeInsets.all(Dim.l),
+      padding: const EdgeInsets.all(Dim.m),
       accent: lesson.accent,
       child: Row(
         children: [
@@ -195,14 +195,14 @@ class _LessonView extends StatelessWidget {
           const SizedBox(width: Dim.l),
           Expanded(
             flex: 60,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(lesson.title, style: AppText.hero.copyWith(fontSize: 32, color: lesson.accent)),
-                const SizedBox(height: Dim.s),
-                Text(lesson.body, style: AppText.body16),
-                const SizedBox(height: Dim.m),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(lesson.title, style: AppText.hero.copyWith(fontSize: 28, color: lesson.accent)),
+                  const SizedBox(height: Dim.s),
+                  Text(lesson.body, style: AppText.body14.copyWith(fontSize: 13)),
+                  const SizedBox(height: Dim.s),
                 for (final point in lesson.points)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 7),

@@ -64,48 +64,43 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(width: Dim.m),
           Expanded(
             flex: 52,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LinkTile(
-                  title: 'Privacy Policy',
-                  subtitle: 'How your data is handled - always available offline.',
-                  icon: Icons.privacy_tip_outlined,
-                  accent: Palette.frost,
-                  onTap: () => _open(context, WebDocument.privacy),
-                ),
-                const SizedBox(height: Dim.s),
-                _LinkTile(
-                  title: 'Support',
-                  subtitle: 'Questions and requests. Reach us at ${AppConfig.supportEmail}.',
-                  icon: Icons.support_agent_rounded,
-                  accent: Palette.venom,
-                  onTap: () => _open(context, WebDocument.support),
-                ),
-                const SizedBox(height: Dim.s),
-                Expanded(
-                  child: GlassPanel(
-                    padding: const EdgeInsets.all(Dim.m),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _LinkTile(
+                    title: 'Privacy Policy',
+                    subtitle: 'How your data is handled - always available offline.',
+                    icon: Icons.privacy_tip_outlined,
+                    accent: Palette.frost,
+                    onTap: () => _open(context, WebDocument.privacy),
+                  ),
+                  const SizedBox(height: Dim.s),
+                  _LinkTile(
+                    title: 'Support',
+                    subtitle: 'Questions and requests. Reach us at ${AppConfig.supportEmail}.',
+                    icon: Icons.support_agent_rounded,
+                    accent: Palette.venom,
+                    onTap: () => _open(context, WebDocument.support),
+                  ),
+                  const SizedBox(height: Dim.s),
+                  GlassPanel(
+                    padding: const EdgeInsets.all(Dim.s),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('BUILD', style: AppText.eyebrow),
-                        const SizedBox(height: Dim.s),
+                        const SizedBox(height: Dim.xs),
                         _Row(label: 'App name', value: AppConfig.appName),
                         _Row(label: 'Bundle ID', value: AppConfig.bundleId),
                         _Row(label: 'App Store ID', value: AppConfig.appStoreId),
                         _Row(label: 'Version', value: AppConfig.version),
-                        const Spacer(),
-                        Text(
-                          'Made with Flutter. All content, audio and progress are bundled and stored on your '
-                          'device, so the game runs with no connection.',
-                          style: AppText.body14.copyWith(fontSize: 10.5, color: Palette.textMuted),
-                        ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -209,12 +204,12 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Text(label, style: AppText.body14.copyWith(fontSize: 11.5, color: Palette.textMuted)),
+          Text(label, style: AppText.body14.copyWith(fontSize: 11, color: Palette.textMuted)),
           const Spacer(),
-          Text(value, style: AppText.label.copyWith(fontSize: 11.5)),
+          Text(value, style: AppText.label.copyWith(fontSize: 11)),
         ],
       ),
     );
