@@ -1,0 +1,4 @@
+# Xcode rewrites this file with real tabs and no BOM. Letting git normalise
+# line endings or merge it as text corrupts it, and CocoaPods then fails on
+# macOS in ways that point nowhere near the actual cause.
+*.pbxproj binary

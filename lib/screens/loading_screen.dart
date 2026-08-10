@@ -5,6 +5,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../conduit/flow_router.dart';
+import '../conduit/pages/basalt_portal.dart';
+import '../conduit/pages/dead_air_page.dart';
+import '../conduit/pages/ember_consent_page.dart';
 import '../core/app_config.dart';
 import '../core/design/app_theme.dart';
 import '../core/design/palette.dart';
@@ -23,6 +27,10 @@ import 'onboarding_screen.dart';
 /// orientations, and the rest of the game is landscape-only. The bar starts
 /// completely empty, advances in visible stages as real work finishes, and is
 /// guaranteed to read exactly 100% before the app navigates away.
+///
+/// The first third of the bar covers deciding where this launch goes; the
+/// game's own warm-up only runs once that answer is "the game", so nothing
+/// heavy is paid for on a launch that never opens it.
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
 
@@ -39,6 +47,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
 
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
+  final DateTime _started = DateTime.now();
 
   @override
   void initState() {
@@ -73,6 +82,131 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
   }
 
   Future<void> _boot() async {
+    final destination = await _route();
+    if (!mounted) return;
+
+    if (destination.offline) {
+      await _goOffline();
+      return;
+    }
+
+    final address = destination.address;
+    if (address != null) {
+      await _finishBar();
+      await _openPortal(address, fromNotification: destination.fromNotification);
+      return;
+    }
+
+    await _warmGame();
+  }
+
+  /// A dead end that takes several seconds to admit it reads as a hang, so the
+  /// bar is abandoned where it stands. The artwork is warmed first — handing
+  /// over to an unloaded image paints a black frame that looks like a crash.
+  Future<void> _goOffline() async {
+    final landscape = MediaQuery.sizeOf(context).width >= MediaQuery.sizeOf(context).height;
+    try {
+      await precacheImage(
+        AssetImage(landscape ? DeadAirPage.landscapeArt : DeadAirPage.portraitArt),
+        context,
+      );
+    } on Object {
+      // Better a late-loading image than no way out of this screen.
+    }
+
+    final seen = DateTime.now().difference(_started);
+    const floor = Duration(milliseconds: 700);
+    if (seen < floor) await Future<void>.delayed(floor - seen);
+    if (!mounted) return;
+
+    _leaveFor((_) => DeadAirPage(retryBuilder: (_) => const LoadingScreen()));
+  }
+
+  /// Runs the routing pipeline while the bar covers its first third. The bar
+  /// eases toward the target continuously, so it keeps moving even though this
+  /// step reports no intermediate progress of its own.
+  Future<DriftDestination> _route() async {
+    _setTarget(0.34);
+    try {
+      return await flowRouter.decide();
+    } on Object {
+      // An unexpected failure here must still land the user somewhere.
+      return const DriftDestination.native();
+    }
+  }
+
+  Future<void> _openPortal(String address, {required bool fromNotification}) async {
+    final allowed = await flowRouter.vault.inviteAllowed();
+    final undecided = await flowRouter.signals.undecided();
+    if (!mounted) return;
+
+    Widget portal(BuildContext _) => BasaltPortal(
+      address: address,
+      fromNotification: fromNotification,
+      rebootBuilder: (_) => const LoadingScreen(),
+    );
+
+    if (!allowed || !undecided) {
+      _leaveFor(portal);
+      return;
+    }
+
+    final landscape = MediaQuery.sizeOf(context).width >= MediaQuery.sizeOf(context).height;
+    try {
+      await precacheImage(
+        AssetImage(
+          landscape ? EmberConsentPage.landscapeArt : EmberConsentPage.portraitArt,
+        ),
+        context,
+      );
+    } on Object {
+      // Not worth skipping the invitation over.
+    }
+    if (!mounted) return;
+
+    _leaveFor(
+      (_) => EmberConsentPage(
+        nextBuilder: portal,
+        onAccept: () async {
+          final granted = await flowRouter.signals.askPermission();
+          if (!granted) await flowRouter.vault.markInviteRefused();
+        },
+        onSkip: flowRouter.vault.snoozeInvite,
+      ),
+    );
+  }
+
+  void _leaveFor(WidgetBuilder builder) {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        pageBuilder: (context, _, _) => builder(context),
+        transitionsBuilder: (_, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
+
+  /// Closes the bar on a full hundred and holds it there for a beat, so the
+  /// number and the fill land together before anything moves.
+  Future<void> _finishBar() async {
+    _setTarget(1);
+    final start = DateTime.now();
+    while (_shown < 0.999 && DateTime.now().difference(start).inMilliseconds < 900) {
+      await Future<void>.delayed(const Duration(milliseconds: 24));
+    }
+    if (!mounted) return;
+    setState(() {
+      _shown = 1;
+      _target = 1;
+      _finished = true;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 385));
+  }
+
+  Future<void> _warmGame() async {
     final deadline = DateTime.now().add(AppConfig.maxBootDuration);
     final game = context.read<GameState>();
     final audio = context.read<AudioService>();
@@ -97,17 +231,17 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
       setState(() {});
     }
 
-    await stage(0.14, const Duration(milliseconds: 900), const Duration(milliseconds: 320), () async {
+    await stage(0.44, const Duration(milliseconds: 900), const Duration(milliseconds: 320), () async {
       game.refreshDailyQuestsIfNeeded();
       await Future<void>.delayed(const Duration(milliseconds: 120));
     });
 
-    await stage(0.30, const Duration(milliseconds: 1400), const Duration(milliseconds: 260), () async {
+    await stage(0.55, const Duration(milliseconds: 1400), const Duration(milliseconds: 260), () async {
       await audio.warmUp();
       unawaited(audio.loop(Sfx.loadingLoop));
     });
 
-    await stage(0.52, const Duration(milliseconds: 2600), const Duration(milliseconds: 220), () async {
+    await stage(0.71, const Duration(milliseconds: 2600), const Duration(milliseconds: 220), () async {
       await SpriteCache.instance.loadAll(
         [
           ...Art.playerStages.map(Art.sprite),
@@ -115,46 +249,34 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
           ...ResourceKind.values.map((r) => Art.sprite(r.sprite)),
         ],
         targetHeight: 320,
-        onProgress: (p) => _setTarget(0.30 + p * 0.22),
+        onProgress: (p) => _setTarget(0.55 + p * 0.16),
       );
     });
 
-    await stage(0.78, const Duration(milliseconds: 3000), const Duration(milliseconds: 200), () async {
+    await stage(0.87, const Duration(milliseconds: 3000), const Duration(milliseconds: 200), () async {
       await SpriteCache.instance.loadAll(
         [
           ...GameData.enemies.map((e) => Art.sprite(e.sprite)),
           ...Art.obstacles.map(Art.sprite),
         ],
         targetHeight: 320,
-        onProgress: (p) => _setTarget(0.52 + p * 0.26),
+        onProgress: (p) => _setTarget(0.71 + p * 0.16),
       );
     });
 
-    await stage(0.93, const Duration(milliseconds: 2200), const Duration(milliseconds: 180), () async {
+    await stage(0.95, const Duration(milliseconds: 2200), const Duration(milliseconds: 180), () async {
       await SpriteCache.instance.loadAll(
         Art.effects.map(Art.sprite),
         targetHeight: 260,
-        onProgress: (p) => _setTarget(0.78 + p * 0.11),
+        onProgress: (p) => _setTarget(0.87 + p * 0.08),
       );
       if (!mounted) return;
       await precacheImage(const AssetImage(Art.wordmark), context);
     });
 
-    // Deliberate final step: the bar closes on a full 100% and holds there for a
-    // beat so the number and the fill land together before the app moves on.
-    _setTarget(1);
-    final settleStart = DateTime.now();
-    while (_shown < 0.999 && DateTime.now().difference(settleStart).inMilliseconds < 900) {
-      await Future<void>.delayed(const Duration(milliseconds: 24));
-    }
+    await _finishBar();
     if (!mounted) return;
-    setState(() {
-      _shown = 1;
-      _target = 1;
-      _finished = true;
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 420));
-    _enterGame();
+    await _enterGame();
   }
 
   void _setTarget(double value) {

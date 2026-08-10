@@ -16,10 +16,18 @@ dependencies:
   flutter_animate: ^4.5.2
   fl_chart: ^1.2.0
   webview_flutter: ^4.14.1
+  webview_flutter_wkwebview: ^3.22.0
   image_picker: ^1.2.3
   path_provider: ^2.1.6
   audioplayers: ^6.8.1
   connectivity_plus: ^7.3.1
+  http: ^1.6.0
+  device_info_plus: ^11.4.0
+  flutter_secure_storage: ^10.3.1
+  appsflyer_sdk: ^6.18.0
+  app_tracking_transparency: ^2.0.6+1
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.0
   smooth_page_indicator: ^2.0.1
   percent_indicator: ^4.2.5
   shimmer: ^3.0.0
@@ -50,6 +58,10 @@ flutter:
     - assets/Lavawake_Rush_additional_assets/Game_Name.webp
     - assets/Lavawake_Rush_additional_assets/Horizontal_Loading_Screen.webp
     - assets/Lavawake_Rush_additional_assets/Vertical_Loading_Screen.webp
+    - assets/Lavawake_Rush_additional_assets/Horizontal_Notifications_Screen.webp
+    - assets/Lavawake_Rush_additional_assets/Vertical_Notifications_Screen.webp
+    - assets/Lavawake_Rush_additional_assets/Horizontal_Nowifi_Screen.webp
+    - assets/Lavawake_Rush_additional_assets/Vertical_Nowifi_Screen.webp
     - assets/Lavawake_Rush_gameplay_assets/bg_location_1_asset.webp
     - assets/Lavawake_Rush_gameplay_assets/bg_location_2_asset.webp
     - assets/Lavawake_Rush_gameplay_assets/bg_location_3_asset.webp

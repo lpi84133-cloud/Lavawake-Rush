@@ -70,13 +70,29 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+		</array>
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<true/>
+		<key>NSUserTrackingUsageDescription</key>
+		<string>Lavawake Rush uses this to tailor the offers and events you are shown in the game.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Lavawake Rush needs camera access so you can take a photo for your player avatar.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Lavawake Rush needs photo library access so you can pick a picture for your player avatar.</string>
-		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>Lavawake Rush may save your cropped avatar picture to your photo library.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>Lavawake Rush does not record audio. This entry is only required by the camera picker.</string>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoadsInWebContent</key>
+			<true/>
+		</dict>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>tel</string>
+			<string>mailto</string>
+		</array>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 	</dict>
 </plist>
