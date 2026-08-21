@@ -109,7 +109,11 @@ class FlowRouter {
   }
 
   Future<DriftDestination> _returningPortal() async {
-    if (!await ReachCheck.interfaceUp()) return const DriftDestination.offline();
+    // Portal users need a real path to the web, not just a radio that
+    // reports up. Skipping the DNS probe here and returning a cached URL
+    // over a dead network paints a blank WebView; probing first lets the
+    // loader hand off to the dead-air page instead.
+    if (!await ReachCheck.routeUp()) return const DriftDestination.offline();
 
     // A destination that has not expired is used as-is. Re-asking on every
     // launch buys nothing the stored answer does not already say, and each
@@ -119,12 +123,6 @@ class FlowRouter {
       unawaited(_catchUpInBackground());
       return DriftDestination.portal(saved);
     }
-
-    // No cached address: confirm the route actually resolves before paying
-    // for the full attribution wait and a config round-trip. A radio that
-    // reports up without a real path used to burn ~34 s here before falling
-    // back to the offline screen.
-    if (!await ReachCheck.routeUp()) return const DriftDestination.offline();
 
     unawaited(signals.bootstrap());
     await attribution.awaitSignals(FlowSettings.signalsWait);
