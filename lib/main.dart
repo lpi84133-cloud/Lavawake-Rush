@@ -18,6 +18,12 @@ import 'state/settings_state.dart';
 /// without threading a context through the pipeline.
 final GlobalKey<NavigatorState> appNavigator = GlobalKey<NavigatorState>();
 
+/// Firebase is only needed once messaging touches it, so the initialization
+/// runs off to one side while the loading screen already paints. Anything
+/// that consumes messaging (see `EmberSignals.bootstrap`) awaits this future
+/// before reaching for the platform channel.
+late final Future<void> firebaseReady;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -30,13 +36,17 @@ Future<void> main() async {
     ),
   );
 
-  // Notifications are a bonus, not a prerequisite. A failure here must leave
-  // the rest of the launch — including attribution — completely unaffected.
-  try {
-    await Firebase.initializeApp();
-  } on Object catch (error) {
-    trace('boot', 'messaging unavailable: $error');
-  }
+  // Notifications are a bonus, not a prerequisite. Kicking the init off
+  // without awaiting keeps the first frame from being blocked behind a
+  // platform channel that talks to native Firebase — the loading screen can
+  // paint and start routing while this settles in the background.
+  firebaseReady = () async {
+    try {
+      await Firebase.initializeApp();
+    } on Object catch (error) {
+      trace('boot', 'messaging unavailable: $error');
+    }
+  }();
 
   flowRouter.signals.onToken = (token) => flowRouter.resendWithToken(token);
   flowRouter.signals.onAddress = _openFromNotification;

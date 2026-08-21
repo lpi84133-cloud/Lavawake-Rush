@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import '../../main.dart' show firebaseReady;
 import '../config/flow_settings.dart';
 import '../core/trace.dart';
 
@@ -14,7 +15,11 @@ import '../core/trace.dart';
 class EmberSignals {
   EmberSignals();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  /// Lazy: `FirebaseMessaging.instance` reads through `Firebase.app()` and
+  /// that call throws until `Firebase.initializeApp` settles. Because init
+  /// now runs off to one side while the loading screen paints, the getter
+  /// stays untouched until `bootstrap()` has already awaited `firebaseReady`.
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
 
   String? _token;
   StreamSubscription<String>? _refresh;
@@ -31,6 +36,11 @@ class EmberSignals {
 
   Future<void> bootstrap() async {
     try {
+      // Firebase.initializeApp() runs in parallel with the first frame so the
+      // loading screen paints faster. Everything below reaches for a
+      // FirebaseMessaging platform channel, so wait for the initialization to
+      // land before touching it.
+      await firebaseReady;
       await _messaging.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
@@ -63,6 +73,7 @@ class EmberSignals {
 
   Future<bool> systemAllows() async {
     try {
+      await firebaseReady;
       final settings = await _messaging.getNotificationSettings();
       return settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
@@ -73,6 +84,7 @@ class EmberSignals {
 
   Future<bool> undecided() async {
     try {
+      await firebaseReady;
       final settings = await _messaging.getNotificationSettings();
       return settings.authorizationStatus == AuthorizationStatus.notDetermined;
     } on Object {
@@ -97,6 +109,7 @@ class EmberSignals {
 
   Future<bool> _askPermission() async {
     try {
+      await firebaseReady;
       final settings = await _messaging.requestPermission(
         alert: true,
         badge: true,
