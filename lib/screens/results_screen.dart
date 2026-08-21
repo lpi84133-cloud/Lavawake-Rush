@@ -37,11 +37,14 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   late final ConfettiController _confetti;
+  late final RunReward _reward;
 
   @override
   void initState() {
     super.initState();
     _confetti = ConfettiController(duration: const Duration(milliseconds: 1400));
+    // Snapshot once: the results screen owns the bonus payload for this run.
+    _reward = context.read<GameState>().lastRunReward;
     if (widget.result.victory) _confetti.play();
   }
 
@@ -173,8 +176,197 @@ class _ResultsScreenState extends State<ResultsScreen> {
               colors: const [Palette.lava, Palette.ember, Palette.crimson, Palette.metal],
             ),
           ),
+          if (!_reward.isEmpty)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: Dim.s),
+                  child: _RewardBanner(reward: _reward),
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// A transient top-of-screen banner that celebrates freshly-unlocked
+/// achievements and a first perfect clear, then slides away on its own so it
+/// never covers the run breakdown for long.
+class _RewardBanner extends StatefulWidget {
+  const _RewardBanner({required this.reward});
+
+  final RunReward reward;
+
+  @override
+  State<_RewardBanner> createState() => _RewardBannerState();
+}
+
+class _RewardBannerState extends State<_RewardBanner> {
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _shown = true);
+    });
+    Future.delayed(const Duration(milliseconds: 5200), () {
+      if (mounted) setState(() => _shown = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reward = widget.reward;
+    return IgnorePointer(
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 460),
+        curve: Curves.easeOutCubic,
+        offset: _shown ? Offset.zero : const Offset(0, -0.7),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 460),
+          opacity: _shown ? 1 : 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: GlassPanel(
+              padding: const EdgeInsets.symmetric(horizontal: Dim.m, vertical: Dim.s),
+              accent: Palette.warning,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.redeem_rounded, size: 14, color: Palette.warning),
+                      const SizedBox(width: 6),
+                      Text('REWARDS EARNED', style: AppText.eyebrow.copyWith(color: Palette.warning)),
+                    ],
+                  ),
+                  for (final def in reward.achievements) ...[
+                    const SizedBox(height: 7),
+                    _AchievementRow(def: def),
+                  ],
+                  if (reward.hasChest) ...[
+                    const SizedBox(height: 7),
+                    _ChestRow(chest: reward.chest),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementRow extends StatelessWidget {
+  const _AchievementRow({required this.def});
+
+  final AchievementDef def;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = def.tier.color;
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: Dim.brS,
+            color: color.withValues(alpha: 0.16),
+            border: Border.all(color: color.withValues(alpha: 0.42)),
+          ),
+          child: Icon(def.icon, size: 16, color: color),
+        ),
+        const SizedBox(width: Dim.s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                def.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label.copyWith(fontSize: 12),
+              ),
+              Text(
+                'Achievement · ${def.tier.label}',
+                style: AppText.eyebrow.copyWith(fontSize: 7.5, color: Palette.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: Dim.s),
+        Text(
+          def.tier.rewardLabel,
+          style: AppText.label.copyWith(fontSize: 11.5, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChestRow extends StatelessWidget {
+  const _ChestRow({required this.chest});
+
+  final Map<ResourceKind, int> chest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: Dim.brS,
+            color: Palette.ember.withValues(alpha: 0.16),
+            border: Border.all(color: Palette.ember.withValues(alpha: 0.42)),
+          ),
+          child: const Icon(Icons.card_giftcard_rounded, size: 16, color: Palette.ember),
+        ),
+        const SizedBox(width: Dim.s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Perfect clear',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label.copyWith(fontSize: 12, color: Palette.ember),
+              ),
+              Text(
+                'First three-star chest',
+                style: AppText.eyebrow.copyWith(fontSize: 7.5, color: Palette.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: Dim.s),
+        for (final entry in chest.entries)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SpriteTile(name: entry.key.sprite, size: 18),
+                const SizedBox(width: 3),
+                Text(
+                  '+${entry.value}',
+                  style: AppText.label.copyWith(fontSize: 11.5, color: entry.key.color),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

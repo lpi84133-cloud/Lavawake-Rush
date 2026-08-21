@@ -1,7 +1,7 @@
 name: lavawake_rush
 description: "Lavawake Rush - control a living lava flow, absorb your enemies and rush through the volcanic world."
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.12.2

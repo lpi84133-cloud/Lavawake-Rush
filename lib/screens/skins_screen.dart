@@ -123,6 +123,10 @@ class _SkinsScreenState extends State<SkinsScreen> {
                               : 'Locked. ${skin.unlockHint}',
                           style: AppText.body16,
                         ),
+                        if (!unlocked) ...[
+                          const SizedBox(height: Dim.m),
+                          _UnlockProgress(skinId: skin.id, tint: skin.tint, game: game),
+                        ],
                         const SizedBox(height: Dim.l),
                         Row(
                           children: [
@@ -188,6 +192,54 @@ class _SkinsScreenState extends State<SkinsScreen> {
         ],
       ),
     );
+  }
+}
+
+/// A progress bar + numeric counter shown under a locked skin's description.
+/// For boolean conditions (flawless run) it shows a simple "not yet" pill.
+class _UnlockProgress extends StatelessWidget {
+  const _UnlockProgress({required this.skinId, required this.tint, required this.game});
+
+  final String skinId;
+  final Color tint;
+  final GameState game;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = game.skinProgress(skinId);
+
+    if (progress == null) {
+      return Row(
+        children: [
+          Icon(Icons.radio_button_unchecked_rounded, size: 12, color: Palette.textMuted),
+          const SizedBox(width: 6),
+          Text('Not yet achieved', style: AppText.body14.copyWith(fontSize: 11, color: Palette.textMuted)),
+        ],
+      );
+    }
+
+    final (current, max) = progress;
+    final ratio = (current / max).clamp(0.0, 1.0);
+    final isDone = current >= max;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: MeterBar(value: ratio, height: 5, color: isDone ? Palette.success : tint)),
+            const SizedBox(width: Dim.s),
+            Text(
+              '$current / $max',
+              style: AppText.eyebrow.copyWith(
+                fontSize: 9.5,
+                color: isDone ? Palette.success : tint,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ).animate().fadeIn(duration: 280.ms);
   }
 }
 

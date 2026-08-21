@@ -106,6 +106,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     final game = context.read<GameState>();
     final audio = context.read<AudioService>();
 
+    game.beginRunResolution();
     game.recordDiscoveries(_engine.discovered);
     game.applyRunResult(result, event: widget.event);
     audio.play(victory ? Sfx.levelComplete : Sfx.levelFailed);

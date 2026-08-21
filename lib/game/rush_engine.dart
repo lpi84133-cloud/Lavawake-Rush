@@ -266,6 +266,7 @@ class RushEngine {
 
   final Set<Essence> essencesUsed = {};
   final Set<String> discovered = {};
+  final Set<String> formsSeen = {};
   final Map<ResourceKind, int> loot = {for (final r in ResourceKind.values) r: 0};
 
   // Roguelite run state ------------------------------------------------------
@@ -525,6 +526,9 @@ class RushEngine {
     _advanceSpeed(dt);
     _advancePlayer(dt);
     _advanceMeters(dt);
+    // Record whichever fusion form the flow is currently holding, so the codex
+    // can reveal a recipe the first time the player actually achieves it.
+    formsSeen.add(activeForm.id);
     _advanceEntities(dt);
     _advanceSpawns(dt);
     _advanceParticles(dt);
@@ -1438,6 +1442,7 @@ class RushEngine {
       for (final entry in loot.entries)
         if (entry.value > 0) entry.key: entry.value,
     },
+    formsSeen: formsSeen,
   );
 
   void dispose() {

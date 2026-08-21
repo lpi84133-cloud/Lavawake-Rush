@@ -330,6 +330,25 @@ extension AchievementTierInfo on AchievementTier {
     AchievementTier.gold => 'Gold',
     AchievementTier.molten => 'Molten',
   };
+
+  /// Resource paid out when an achievement of this tier is first unlocked.
+  /// A `null` kind means the tier pays a Crucible perk point instead.
+  ResourceKind? get rewardKind => switch (this) {
+    AchievementTier.bronze => ResourceKind.magma,
+    AchievementTier.silver => ResourceKind.shards,
+    AchievementTier.gold => ResourceKind.cores,
+    AchievementTier.molten => null,
+  };
+
+  int get rewardAmount => switch (this) {
+    AchievementTier.bronze => 150,
+    AchievementTier.silver => 12,
+    AchievementTier.gold => 5,
+    AchievementTier.molten => 1,
+  };
+
+  String get rewardLabel =>
+      rewardKind == null ? '+1 Perk Point' : '+$rewardAmount ${rewardKind!.label}';
 }
 
 @immutable
@@ -372,6 +391,7 @@ class RunResult {
     required this.flawless,
     required this.essencesUsed,
     required this.loot,
+    this.formsSeen = const {},
   });
 
   final int levelIndex;
@@ -389,4 +409,8 @@ class RunResult {
   final bool flawless;
   final Set<Essence> essencesUsed;
   final Map<ResourceKind, int> loot;
+
+  /// Fusion forms the flow actually held at some point during the run, used to
+  /// reveal recipes in the Forms Codex the first time they are achieved.
+  final Set<String> formsSeen;
 }

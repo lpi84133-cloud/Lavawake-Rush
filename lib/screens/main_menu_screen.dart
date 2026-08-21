@@ -503,10 +503,6 @@ class _UtilityRail extends StatelessWidget {
 
     return Row(
       children: [
-        Text(
-          'v${AppConfig.version}  ${AppConfig.bundleId}',
-          style: AppText.eyebrow.copyWith(letterSpacing: 0.8, fontSize: 9.5),
-        ),
         const Spacer(),
         for (final item in items)
           Padding(

@@ -94,6 +94,26 @@ class LeaderboardEntry {
   final bool isPlayer;
 }
 
+/// The bonus payload resolved for the run that just finished. The results
+/// screen reads this once to surface freshly-unlocked achievements, their tier
+/// rewards and any first-time three-star chest — none of which alter the run's
+/// own loot line.
+class RunReward {
+  const RunReward({required this.achievements, required this.chest});
+
+  /// Achievements unlocked by the run. Each carries its own tier reward, already
+  /// paid into the wallet.
+  final List<AchievementDef> achievements;
+
+  /// The first-time three-star chest, if this run earned one. Empty otherwise.
+  final Map<ResourceKind, int> chest;
+
+  bool get hasChest => chest.isNotEmpty;
+  bool get isEmpty => achievements.isEmpty && chest.isEmpty;
+
+  static const RunReward none = RunReward(achievements: [], chest: {});
+}
+
 /// The single owner of all mutable player progress.
 class GameState extends ChangeNotifier {
   GameState(this._save) {
@@ -123,8 +143,22 @@ class GameState extends ChangeNotifier {
   final Map<int, int> levelStars = {};
   final Map<int, int> levelBestScore = {};
   final Set<String> discovered = {};
+  final Set<String> discoveredForms = {};
   final Set<String> unlockedSkins = {'skin_ember'};
   final Set<String> unlockedAchievements = {};
+
+  /// Levels that have already paid out their one-time three-star chest, so the
+  /// bonus never repeats no matter how often a level is replayed.
+  final Set<int> tripleStarLevels = {};
+
+  // Scratch state for resolving a single run's bonuses, snapshotted into
+  // [lastRunReward] once the run has been folded in.
+  List<AchievementDef> _runAchievements = [];
+  Map<ResourceKind, int> _runChest = {};
+
+  /// The bonus payload for the most recently resolved run; consumed by the
+  /// results screen.
+  RunReward lastRunReward = RunReward.none;
   final List<QuestProgress> quests = [];
   final List<int> recentScores = [];
   final List<int> weeklyMinutes = List<int>.filled(7, 0);
@@ -443,6 +477,13 @@ class GameState extends ChangeNotifier {
   /// run feeds the event board and its objectives instead of the endless
   /// record, so a modifier-buffed score never displaces an honest Rush Mode
   /// personal best.
+  /// Resets the per-run bonus scratch. Call once before folding a finished run
+  /// in (including its discoveries) so [lastRunReward] reflects only this run.
+  void beginRunResolution() {
+    _runAchievements = [];
+    _runChest = {};
+  }
+
   void applyRunResult(RunResult result, {VolcanicEventDef? event}) {
     stats.runs++;
     if (result.victory) {
@@ -462,6 +503,7 @@ class GameState extends ChangeNotifier {
     for (final essence in result.essencesUsed) {
       stats.essenceUse[essence] = stats.essenceUse[essence]! + 1;
     }
+    discoveredForms.addAll(result.formsSeen);
 
     for (final entry in result.loot.entries) {
       resources[entry.key] = resources[entry.key]! + entry.value;
@@ -488,12 +530,32 @@ class GameState extends ChangeNotifier {
       if (result.score > (levelBestScore[result.levelIndex] ?? 0)) {
         levelBestScore[result.levelIndex] = result.score;
       }
+      // A perfect three-star clear pays a one-time chest, scaled by how deep the
+      // level sits in the mountain, to reward mastering the campaign.
+      if (stars >= 3 && !tripleStarLevels.contains(result.levelIndex)) {
+        tripleStarLevels.add(result.levelIndex);
+        final region = GameData.levelAt(result.levelIndex).regionIndex;
+        _grantChest(ResourceKind.cores, 2 + region);
+        _grantChest(ResourceKind.shards, 15 + region * 5);
+      }
     }
 
     _advanceQuests(result);
     _refreshUnlocks();
+    lastRunReward = RunReward(
+      achievements: List.of(_runAchievements),
+      chest: Map.of(_runChest),
+    );
     _persist();
     notifyListeners();
+  }
+
+  /// Adds a three-star chest resource both to the wallet and to the current
+  /// run's scratch tally so the results screen can show it apart from run loot.
+  void _grantChest(ResourceKind kind, int amount) {
+    resources[kind] = resources[kind]! + amount;
+    stats.earned[kind] = stats.earned[kind]! + amount;
+    _runChest[kind] = (_runChest[kind] ?? 0) + amount;
   }
 
   void recordDiscovery(String enemyId) {
@@ -534,11 +596,14 @@ class GameState extends ChangeNotifier {
     _lastRewardedLevel = 1;
     levelStars.clear();
     levelBestScore.clear();
+    tripleStarLevels.clear();
     discovered.clear();
+    discoveredForms.clear();
     unlockedSkins
       ..clear()
       ..add('skin_ember');
     unlockedAchievements.clear();
+    lastRunReward = RunReward.none;
     recentScores.clear();
     for (var i = 0; i < weeklyMinutes.length; i++) {
       weeklyMinutes[i] = 0;
@@ -617,9 +682,60 @@ class GameState extends ChangeNotifier {
     if (discovered.length >= GameData.enemies.length) grant('skin_void');
 
     for (final def in GameData.achievements) {
-      if (achievementProgress(def) >= def.target) unlockedAchievements.add(def.id);
+      if (unlockedAchievements.contains(def.id)) continue;
+      if (achievementProgress(def) >= def.target) {
+        unlockedAchievements.add(def.id);
+        _runAchievements.add(def);
+        _grantAchievementReward(def);
+      }
     }
   }
+
+  /// Pays the tier reward for a newly-unlocked achievement and records it in the
+  /// current run's scratch bonus so the results screen can surface it.
+  void _grantAchievementReward(AchievementDef def) {
+    final kind = def.tier.rewardKind;
+    final amount = def.tier.rewardAmount;
+    if (kind == null) {
+      perkPoints += amount;
+    } else {
+      resources[kind] = resources[kind]! + amount;
+      stats.earned[kind] = stats.earned[kind]! + amount;
+    }
+  }
+
+  bool isFormDiscovered(FormDef form) =>
+      form.recipe.isEmpty || discoveredForms.contains(form.id);
+
+  int get discoveredFormsCount =>
+      GameData.forms.where(isFormDiscovered).length;
+
+  /// Returns (current, max) unlock progress for a skin, or null for boolean /
+  /// already-unlocked conditions that cannot be expressed as a number.
+  (int, int)? skinProgress(String id) {
+    if (unlockedSkins.contains(id)) return null;
+    return switch (id) {
+      'skin_crimson' => (math.min(stats.absorbed, 100), 100),
+      'skin_charcoal' => (math.min(stats.obstacles, 150), 150),
+      'skin_obsidian' => (_regionLevelsDone(0), _regionLevelsTotal(0)),
+      'skin_glacier' => (_regionLevelsDone(1), _regionLevelsTotal(1)),
+      'skin_cryo' => (math.min(stats.essenceUse[Essence.rime]!, 40), 40),
+      'skin_bronze' => (_regionLevelsDone(4), _regionLevelsTotal(4)),
+      'skin_amethyst' => (_regionLevelsDone(3), _regionLevelsTotal(3)),
+      'skin_sulphur' => (math.min(stats.bestCombo, 30), 30),
+      'skin_prism' => (math.min(bossesFelled(), 6), 6),
+      'skin_void' => (math.min(discovered.length, GameData.enemies.length), GameData.enemies.length),
+      'skin_venom' => (math.min(stats.flawlessRuns, 1), 1),
+      _ => null,
+    };
+  }
+
+  int _regionLevelsDone(int regionIndex) => GameData.levels
+      .where((l) => l.regionIndex == regionIndex && (levelStars[l.globalIndex] ?? 0) > 0)
+      .length;
+
+  int _regionLevelsTotal(int regionIndex) =>
+      GameData.levels.where((l) => l.regionIndex == regionIndex).length;
 
   bool _regionCleared(int regionIndex) {
     final region = GameData.regions[regionIndex];
@@ -744,6 +860,8 @@ class GameState extends ChangeNotifier {
       if (index != null && value is int) levelBestScore[index] = value;
     });
     discovered.addAll((data['discovered'] as List?)?.whereType<String>() ?? const []);
+    discoveredForms.addAll((data['discoveredForms'] as List?)?.whereType<String>() ?? const []);
+    tripleStarLevels.addAll((data['tripleStarLevels'] as List?)?.whereType<int>() ?? const []);
     unlockedSkins.addAll((data['unlockedSkins'] as List?)?.whereType<String>() ?? const []);
     unlockedAchievements.addAll((data['achievements'] as List?)?.whereType<String>() ?? const []);
     recentScores.addAll((data['recentScores'] as List?)?.whereType<int>() ?? const []);
@@ -814,6 +932,8 @@ class GameState extends ChangeNotifier {
       'levelStars': {for (final e in levelStars.entries) e.key.toString(): e.value},
       'levelBestScore': {for (final e in levelBestScore.entries) e.key.toString(): e.value},
       'discovered': discovered.toList(),
+      'discoveredForms': discoveredForms.toList(),
+      'tripleStarLevels': tripleStarLevels.toList(),
       'unlockedSkins': unlockedSkins.toList(),
       'achievements': unlockedAchievements.toList(),
       'recentScores': recentScores,

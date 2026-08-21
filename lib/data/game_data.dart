@@ -591,14 +591,22 @@ class GameData {
     'demon_boss_pyrelord',
   ];
 
-  static const List<String> _levelNames = [
-    'First Tremor',
-    'Cooling Shelf',
-    'Crust Walk',
-    'Ember Gate',
-    'Narrow Seam',
-    'Broken Terrace',
-    'Rising Pressure',
+  /// Seven named channels per region (the eighth level of every region is a
+  /// boss and takes its own title). Themed to the zone so no name repeats across
+  /// the campaign.
+  static const List<List<String>> _regionLevelNames = [
+    // Emberwake Hollow — waking basalt shelves.
+    ['First Tremor', 'Cooling Shelf', 'Basalt Steps', 'Ember Gate', 'Hollow Mouth', 'Cinder Rille', 'Waking Ridge'],
+    // Rimefall Divide — ice pressed against open lava.
+    ['Frostbite Pass', 'Glacier Seam', 'Splintered Ice', 'Coldfront Gap', 'Rime Gallery', 'Frozen Spillway', 'Shivering Rise'],
+    // Molten Veins — the mountain's open arteries.
+    ['Open Artery', 'Magma Run', 'Searing Narrows', 'Blister Field', 'Sulphur Gorge', 'Furnace Bend', 'Boiling Climb'],
+    // Geodeheart Cavern — a crystal cathedral.
+    ['Crystal Threshold', 'Prism Hall', 'Refracted Path', 'Geode Vault', 'Shardlight Nave', 'Amethyst Reach', 'Faceted Ascent'],
+    // Forgeworks Sanctum — machinery that outlived its makers.
+    ['Foundry Gate', 'Cogwork Line', 'Cutting Floor', 'Plated Corridor', 'Bellows Row', 'Anvil Yard', 'Assembly Spire'],
+    // Caldera Prime — terraces spiralling into the first vent.
+    ['Outer Terrace', 'Ashen Spiral', 'Molten Ring', 'Vent Descent', 'Inner Caldera', 'Primordial Stair', 'The First Vent'],
   ];
 
   static final List<LevelDef> levels = _buildLevels();
@@ -615,7 +623,9 @@ class GameData {
             regionIndex: region.index,
             indexInRegion: i,
             globalIndex: global,
-            name: isBoss ? 'Warden of ${region.name.split(' ').first}' : _levelNames[i % _levelNames.length],
+            name: isBoss
+                ? 'Warden of ${region.name.split(' ').first}'
+                : _regionLevelNames[region.index][i],
             distance: 900 + region.index * 240 + i * 130,
             difficulty: difficulty,
             isBoss: isBoss,
