@@ -78,13 +78,14 @@ class FlowSettings {
   /// asking the backend. On a real device AF delivers the conversion around
   /// 4-6 s after launch (see field logs), so this budget must clear that —
   /// posting to the backend before the conversion lands sends an empty body
-  /// and the user is misrouted to the game. 12 s leaves headroom.
-  static const Duration signalsWait = Duration(milliseconds: 12000);
+  /// and the user is misrouted to the game. 8 s is the tightest window that
+  /// still clears the field-observed AF worst case with margin.
+  static const Duration signalsWait = Duration(milliseconds: 8000);
 
   /// Ceiling on re-checking an install that already settled on the game.
   /// Must exceed [signalsWait] plus one config round-trip, or a returning
   /// user who should be flipped to the portal times out into the game.
-  static const Duration recheckBudget = Duration(milliseconds: 21000);
+  static const Duration recheckBudget = Duration(milliseconds: 16000);
   static const Duration consentDelay = Duration(milliseconds: 640);
   static const Duration coldViewportSettle = Duration(milliseconds: 355);
   static const Duration reflowSettle = Duration(milliseconds: 1120);

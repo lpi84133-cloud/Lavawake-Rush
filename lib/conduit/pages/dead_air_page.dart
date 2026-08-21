@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -25,6 +28,7 @@ class DeadAirPage extends StatefulWidget {
 
 class _DeadAirPageState extends State<DeadAirPage> {
   bool _retrying = false;
+  StreamSubscription<List<ConnectivityResult>>? _watch;
 
   @override
   void initState() {
@@ -36,10 +40,26 @@ class _DeadAirPageState extends State<DeadAirPage> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+
+    // Auto-continue the moment the radio reports a working interface again.
+    // The pipeline is idempotent and rebuilds itself from scratch, so this
+    // is safe to fire on the first up-edge — the user does not have to hunt
+    // for the button after they turned Wi-Fi back on.
+    _watch = Connectivity().onConnectivityChanged.listen((state) {
+      if (_retrying) return;
+      if (!state.any((entry) => entry != ConnectivityResult.none)) return;
+      _retry();
+    });
+  }
+
+  @override
+  void dispose() {
+    _watch?.cancel();
+    super.dispose();
   }
 
   void _retry() {
-    if (_retrying) return;
+    if (_retrying || !mounted) return;
     setState(() => _retrying = true);
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: widget.retryBuilder),
