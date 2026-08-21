@@ -120,6 +120,12 @@ class FlowRouter {
       return DriftDestination.portal(saved);
     }
 
+    // No cached address: confirm the route actually resolves before paying
+    // for the full attribution wait and a config round-trip. A radio that
+    // reports up without a real path used to burn ~34 s here before falling
+    // back to the offline screen.
+    if (!await ReachCheck.routeUp()) return const DriftDestination.offline();
+
     unawaited(signals.bootstrap());
     await attribution.awaitSignals(FlowSettings.signalsWait);
 

@@ -115,7 +115,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
     }
 
     final seen = DateTime.now().difference(_started);
-    const floor = Duration(milliseconds: 700);
+    const floor = Duration(milliseconds: 220);
     if (seen < floor) await Future<void>.delayed(floor - seen);
     if (!mounted) return;
 
