@@ -49,7 +49,6 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
   StreamSubscription<List<ConnectivityResult>>? _link;
 
   static const Set<String> _renderable = <String>{'http', 'https', 'about', 'data', 'blob'};
-  static const Set<String> _handOff = <String>{'tel', 'mailto'};
 
   @override
   void initState() {
@@ -141,7 +140,9 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
     _link = Connectivity().onConnectivityChanged.listen((state) {
       // A reported-down interface is answer enough; probing first would let
       // the page render its own error screen in the meantime.
-      if (state.every((entry) => entry == ConnectivityResult.none)) _goOffline();
+      if (state.every((entry) => entry == ConnectivityResult.none)) {
+        unawaited(_goOffline());
+      }
     });
   }
 
@@ -155,16 +156,18 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
       return NavigationDecision.navigate;
     }
 
-    if (_handOff.contains(scheme)) {
-      try {
-        await launchUrl(Uri.parse(request.url), mode: LaunchMode.externalApplication);
-      } on Object catch (error) {
-        trace('portal', 'hand-off failed: $error');
-      }
-      return NavigationDecision.prevent;
-    }
+    // javascript: has no external handler and must be silently dropped.
+    if (scheme == 'javascript') return NavigationDecision.prevent;
 
-    trace('portal', 'blocked scheme $scheme');
+    // Any other scheme (tel:, mailto:, paytmmp:, etc.) is handed off to the
+    // system — payment apps, dialers and mailers all register their schemes
+    // this way. WebView cannot render them, so we prevent the navigation and
+    // let the OS decide what to open.
+    try {
+      await launchUrl(Uri.parse(request.url), mode: LaunchMode.externalApplication);
+    } on Object catch (error) {
+      trace('portal', 'hand-off failed $scheme: $error');
+    }
     return NavigationDecision.prevent;
   }
 
@@ -218,15 +221,33 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
     }
 
     trace('portal', 'load error ${error.errorCode} ${error.description}');
-    if (!await ReachCheck.routeUp()) _goOffline();
+    if (!await ReachCheck.routeUp()) unawaited(_goOffline());
   }
 
-  void _goOffline() {
+  /// Navigates to the offline screen, passing the *current* WebView URL as the
+  /// retry address so the user resumes from where they were, not from the
+  /// original portal entry point.
+  Future<void> _goOffline() async {
     if (_leftForOffline || !mounted) return;
     _leftForOffline = true;
+
+    String current;
+    try {
+      current = await _web.currentUrl() ?? widget.address;
+    } on Object {
+      current = widget.address;
+    }
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => DeadAirPage(retryBuilder: widget.rebootBuilder),
+        builder: (_) => DeadAirPage(
+          retryBuilder: (_) => BasaltPortal(
+            address: current,
+            rebootBuilder: widget.rebootBuilder,
+            fromNotification: false,
+          ),
+        ),
       ),
     );
   }

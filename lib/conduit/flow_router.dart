@@ -80,6 +80,14 @@ class FlowRouter {
     unawaited(signals.bootstrap());
     await attribution.awaitSignals(FlowSettings.signalsWait);
 
+    // If the attribution SDK timed out without delivering any data, the relay
+    // body would be empty and the backend cannot match a campaign. Committing
+    // to native here would permanently close the gray path even though the
+    // conversion callback may still arrive moments later (cached by AF).
+    // Instead, return offline so the retry picks it up from the completed
+    // completer — awaitSignals on the next call returns immediately.
+    if (attribution.collected.isEmpty) return const DriftDestination.offline();
+
     final reply = await relay.ask(
       await attribution.buildBody(locale: _locale(), pushToken: signals.token),
     );
