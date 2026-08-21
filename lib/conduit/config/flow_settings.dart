@@ -17,20 +17,23 @@ class FlowSettings {
   static const String storeReference = 'id$storeNumber';
 
   // ── Packed values ────────────────────────────────────────────────────────
-  static const String _relayEndpoint = 'CRUVFQFJSEIPDBoXAApFEBoUFgcAAg4MShEcCQsKCkIGHxs=';
-  static const String _driftDevKey = 'EANULxQ/KSoMLB8sGjJdQBlZPxptKQ==';
-  static const String _signalProjectNumber = 'UFlVVUZBU1pUVVlF';
-  static const String _driftLookupBase = 'CRUVFQFJSEIEDggFEwAAFBgRFglCGAQTSxEcCg==';
-  static const String _stampProduct = 'LA4bDB4fBkJWQ1w=';
-  static const String _stampPlatformOpen = 'SQgxDR0dAlZDLjwjVwJ+HQcPAE9hMg==';
-  static const String _stampPlatformClose = 'DQgKAFI+Bg5DIj9WL0I=';
-  static const String _stampEngine = 'IBERCRckAg8oBBhZQVsbW1lPVFoOSSopMT8/S00PBAcTVyxLFgMOTA==';
-  static const String _stampRelease = 'NwQTFhscCUI=';
-  static const String _stampBuild = 'LA4DDB4WSFxWKF1CTw==';
-  static const String _stampTail = 'MgAHBAAaSFtTWUJH';
-  static const String _stampIdKey = 'ABERDBZc';
-  static const String _stampNameKey = 'ABERCxMeAkI=';
-  static const String _stampNameValue = 'LQAXBAUSDAgxGB8e';
+  // Regenerated for the feedback keystream in `AshCodec`; hand-editing any of
+  // these will corrupt the payload silently. Round-trip is verified by
+  // `dart run tool/encode_flow_values.dart`.
+  static const String _relayEndpoint = 'jQ2mWlCEWRkvZreehI4ncGB2At0DmH2E/4gDAhT71Pg9/cg=';
+  static const String _driftDevKey = 'lBRzDTDjHc5lJJQbJ8mL9gTueLALBA==';
+  static const String _signalProjectNumber = '1OT5Zd4srlF+00qk';
+  static const String _driftLookupBase = 'jQ2mWlCEWRkkDS/TyS7vm7+RK73Tw1d21OIbJw==';
+  static const String _stampProduct = 'qOOcbphzDZs056s=';
+  static const String _stampPlatformOpen = 'zbdyUuViC218jKROKZjKqJaq9pL5Sw==';
+  static const String _stampPlatformClose = 'iQvhhfYinkLyKsxZEe8=';
+  static const String _stampEngine = 'pL+BCPKCLYOgTfQZlwjh18GF6Bkw7F2tgshEs6QnJAz/wd6k5J1WAA==';
+  static const String _stampRelease = 's8OQQw1tDZY=';
+  static const String _stampBuild = 'qOOEXQFEN4IPRY34WQ==';
+  static const String _stampTail = 'tlUUuGjXodv9zJWJ';
+  static const String _stampIdKey = 'hG3SI1jj';
+  static const String _stampNameKey = 'hG3SJMq8wbI=';
+  static const String _stampNameValue = 'qXQYnFdPEsktIMia';
 
   static String get relayEndpoint => AshCodec.reveal(_relayEndpoint);
   static String get driftDevKey => AshCodec.reveal(_driftDevKey);
@@ -64,12 +67,12 @@ class FlowSettings {
   static const int inviteSnoozeSeconds = 316800;
 
   /// Pause before re-reading attribution that first reported as organic.
-  static const int organicRecheckSeconds = 9;
+  static const int organicRecheckSeconds = 11;
 
   /// A saved destination is not reused past this age.
-  static const int savedRouteExpiryDays = 6;
+  static const int savedRouteExpiryDays = 5;
 
-  static const Duration relayTimeout = Duration(seconds: 19);
+  static const Duration relayTimeout = Duration(seconds: 22);
 
   /// How long to wait for the first AppsFlyer conversion callback before
   /// asking the backend. On a real device AF delivers the conversion around
@@ -92,5 +95,5 @@ class FlowSettings {
 
   static const int redirectRetryLimit = 4;
 
-  static const List<int> reflowPokes = <int>[55, 210, 430, 690, 940];
+  static const List<int> reflowPokes = <int>[50, 195, 415, 725, 960];
 }

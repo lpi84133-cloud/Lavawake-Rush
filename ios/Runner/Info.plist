@@ -77,7 +77,7 @@
 		<key>FirebaseAppDelegateProxyEnabled</key>
 		<true/>
 		<key>NSUserTrackingUsageDescription</key>
-		<string>Lavawake Rush uses this to tailor the offers and events you are shown in the game.</string>
+		<string>Lavawake Rush uses this to personalize the Volcanic Events rotation and daily challenges you see in the game.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Lavawake Rush needs camera access so you can take a photo for your player avatar.</string>
 		<key>NSPhotoLibraryUsageDescription</key>

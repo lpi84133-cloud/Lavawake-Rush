@@ -327,16 +327,17 @@ const String _pageTweaks = r'''
   var styleId = 'lvr-shell-style';
   var css =
     ':root{' +
-      '--safe-area-inset-top:0px!important;--safe-area-inset-right:0px!important;' +
-      '--safe-area-inset-bottom:0px!important;--safe-area-inset-left:0px!important;' +
-      '--sat:0px!important;--sar:0px!important;--sab:0px!important;--sal:0px!important;' +
-      '--safe-top:0px!important;--safe-bottom:0px!important;' +
-      '--safe-left:0px!important;--safe-right:0px!important;' +
-    '}' +
-    'html,body{overscroll-behavior:none!important;overscroll-behavior-y:none!important;}' +
-    '*{-webkit-tap-highlight-color:transparent!important;}' +
-    'input,textarea,select{font-size:max(16px,1em)!important;}' +
-    '::-webkit-scrollbar{width:0px;height:0px;}';
+      ' --safe-area-inset-top: 0px !important; --safe-area-inset-right: 0px !important;' +
+      ' --safe-area-inset-bottom: 0px !important; --safe-area-inset-left: 0px !important;' +
+      ' --sat: 0px !important; --sar: 0px !important; --sab: 0px !important; --sal: 0px !important;' +
+      ' --safe-top: 0px !important; --safe-bottom: 0px !important;' +
+      ' --safe-left: 0px !important; --safe-right: 0px !important;' +
+    ' }' +
+    'html, body{ overscroll-behavior: none !important; overscroll-behavior-y: none !important; }' +
+    '*{ -webkit-tap-highlight-color: transparent !important; }' +
+    'input, textarea, select{ font-size: max(16px, 1em) !important; }' +
+    '::-webkit-scrollbar{ width: 0; height: 0; }' +
+    '::-webkit-scrollbar-thumb{ background: rgba(72, 20, 10, 0.55); }';
 
   var paintStyle = function(){
     var tag = document.getElementById(styleId);
