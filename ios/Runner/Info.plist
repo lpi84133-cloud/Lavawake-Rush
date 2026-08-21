@@ -74,9 +74,5 @@
 		<string>Lavawake Rush needs camera access so you can take a photo for your player avatar.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Lavawake Rush needs photo library access so you can pick a picture for your player avatar.</string>
-		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>Lavawake Rush may save your cropped avatar picture to your photo library.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>Lavawake Rush does not record audio. This entry is only required by the camera picker.</string>
 	</dict>
 </plist>

@@ -99,6 +99,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
 
     await stage(0.14, const Duration(milliseconds: 900), const Duration(milliseconds: 320), () async {
       game.refreshDailyQuestsIfNeeded();
+      game.refreshEventIfNeeded();
       await Future<void>.delayed(const Duration(milliseconds: 120));
     });
 

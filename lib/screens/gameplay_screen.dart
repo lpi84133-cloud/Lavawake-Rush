@@ -16,6 +16,7 @@ import '../data/asset_catalog.dart';
 import '../data/game_data.dart';
 import '../data/models.dart';
 import '../data/mutations.dart';
+import '../data/volcanic_events.dart';
 import '../game/rush_engine.dart';
 import '../game/rush_painter.dart';
 import '../game/sprite_cache.dart';
@@ -26,10 +27,15 @@ import 'results_screen.dart';
 
 /// Hosts one run: the renderer, the input surface, the HUD, and the pause sheet.
 class GameplayScreen extends StatefulWidget {
-  const GameplayScreen({super.key, this.level, this.endless = false});
+  const GameplayScreen({super.key, this.level, this.endless = false, this.event});
 
   final LevelDef? level;
   final bool endless;
+
+  /// Set only when the run was started from the weekly event screen. It layers
+  /// the event's modifiers on top of the perk board and routes the result to
+  /// the event standings instead of the endless record.
+  final VolcanicEventDef? event;
 
   @override
   State<GameplayScreen> createState() => _GameplayScreenState();
@@ -62,7 +68,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
         harvestBonus: game.bonus(UpgradeTrack.harvest),
         laneControls: settings.controls == ControlScheme.lanes,
         particleScale: settings.quality.particleScale,
-        modifiers: game.buildRunModifiers(),
+        modifiers: game.buildRunModifiers(event: widget.event),
       ),
     );
 
@@ -101,7 +107,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     final audio = context.read<AudioService>();
 
     game.recordDiscoveries(_engine.discovered);
-    game.applyRunResult(result);
+    game.applyRunResult(result, event: widget.event);
     audio.play(victory ? Sfx.levelComplete : Sfx.levelFailed);
 
     await Future<void>.delayed(const Duration(milliseconds: 620));
