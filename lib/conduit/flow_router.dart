@@ -178,8 +178,15 @@ class FlowRouter {
 
   /// Re-asks with the token once registration finishes, so an install that was
   /// first described without one becomes reachable by notifications.
+  ///
+  /// Skipped when attribution has not settled yet — the token arrives faster
+  /// than the conversion callback, so firing here would send an empty body
+  /// and the backend would not find a matching campaign. The main pipeline
+  /// call (which awaits the full conversion) handles that launch; this is
+  /// only for subsequent launches where attribution is already in memory.
   Future<void> resendWithToken(String token) async {
     if (!FlowSettings.pipelineReady) return;
+    if (attribution.collected.isEmpty) return;
     final reply = await relay.ask(
       await attribution.buildBody(locale: _locale(), pushToken: token),
     );
