@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 
 import '../core/design/app_theme.dart';
 import '../core/design/palette.dart';
@@ -9,6 +10,7 @@ import '../core/widgets/glass_panel.dart';
 import '../core/widgets/screen_shell.dart';
 import '../data/game_data.dart';
 import '../data/models.dart';
+import '../state/game_state.dart';
 
 /// Forms Codex. Explains the material-fusion system that drives the run: which
 /// two essences combine into which hybrid, and what each one changes. It reads
@@ -18,9 +20,10 @@ class FormsCodexScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final game = context.watch<GameState>();
     return ScreenShell(
       title: 'Forms Codex',
-      eyebrow: 'Fusion recipes',
+      eyebrow: '${game.discoveredFormsCount}/${GameData.forms.length} recipes discovered',
       accent: Palette.ember,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,8 +36,8 @@ class FormsCodexScreen extends StatelessWidget {
                 const SizedBox(width: Dim.s),
                 Expanded(
                   child: Text(
-                    'Hold two materials at once and the flow fuses into a hybrid form mid-run. Each form '
-                    'trades one strength for one weakness - the whole build is in the mix you keep hot.',
+                    'Hold two materials at once and the flow fuses into a hybrid form mid-run. Each recipe '
+                    'stays sealed until you achieve the form yourself - reach it once and it is logged here.',
                     style: AppText.body14.copyWith(fontSize: 11.5),
                   ),
                 ),
@@ -52,7 +55,11 @@ class FormsCodexScreen extends StatelessWidget {
                 childAspectRatio: 3.1,
               ),
               itemCount: GameData.forms.length,
-              itemBuilder: (context, index) => _FormCard(form: GameData.forms[index], index: index),
+              itemBuilder: (context, index) => _FormCard(
+                form: GameData.forms[index],
+                index: index,
+                discovered: game.isFormDiscovered(GameData.forms[index]),
+              ),
             ),
           ),
         ],
@@ -62,10 +69,11 @@ class FormsCodexScreen extends StatelessWidget {
 }
 
 class _FormCard extends StatelessWidget {
-  const _FormCard({required this.form, required this.index});
+  const _FormCard({required this.form, required this.index, required this.discovered});
 
   final FormDef form;
   final int index;
+  final bool discovered;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +84,8 @@ class _FormCard extends StatelessWidget {
         : isBase
         ? Palette.stone
         : form.recipe.first.color;
+
+    if (!discovered) return _sealed(context, accent, isFinal);
 
     return GlassPanel(
           padding: const EdgeInsets.all(Dim.m),
@@ -156,6 +166,83 @@ class _FormCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(delay: (index * 45).ms, duration: 280.ms)
+        .slideY(begin: 0.12, curve: Curves.easeOutCubic);
+  }
+
+  /// The undiscovered state: a silhouette plus the recipe needed to reveal it,
+  /// so the codex reads as something to chase rather than a blank slot.
+  Widget _sealed(BuildContext context, Color accent, bool isFinal) {
+    return GlassPanel(
+          padding: const EdgeInsets.all(Dim.m),
+          accent: Palette.textMuted,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Opacity(
+                      opacity: 0.16,
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.mode(Colors.black, BlendMode.srcIn),
+                        child: SpriteTile(name: form.sprite, size: 56),
+                      ),
+                    ),
+                    const Icon(Icons.lock_rounded, size: 20, color: Palette.textMuted),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Dim.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Sealed recipe',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.subtitle.copyWith(fontSize: 15, color: Palette.textMuted),
+                          ),
+                        ),
+                        Chip2(label: isFinal ? 'FINAL' : 'LOCKED', color: Palette.textMuted, dense: true),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        for (var i = 0; i < form.recipe.length; i++) ...[
+                          if (i > 0)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 2),
+                              child: Icon(Icons.add_rounded, size: 10, color: Palette.textMuted),
+                            ),
+                          Icon(form.recipe[i].icon, size: 12, color: form.recipe[i].color),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isFinal
+                          ? 'Hold all five materials at full charge to reveal this form.'
+                          : 'Fuse this pair in a run to log the recipe.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body14.copyWith(fontSize: 10.5, color: Palette.textMuted),
                     ),
                   ],
                 ),

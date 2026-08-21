@@ -46,7 +46,7 @@ class CollectionHubScreen extends StatelessWidget {
       ),
       _Section(
         title: 'Forms Codex',
-        subtitle: '${GameData.forms.length} fusion recipes',
+        subtitle: '${game.discoveredFormsCount}/${GameData.forms.length} recipes discovered',
         icon: Icons.merge_type_rounded,
         accent: Palette.ember,
         destination: () => const FormsCodexScreen(),

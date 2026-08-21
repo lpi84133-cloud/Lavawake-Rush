@@ -16,6 +16,7 @@ import '../data/asset_catalog.dart';
 import '../data/game_data.dart';
 import '../data/models.dart';
 import '../data/mutations.dart';
+import '../data/volcanic_events.dart';
 import '../game/rush_engine.dart';
 import '../game/rush_painter.dart';
 import '../game/sprite_cache.dart';
@@ -26,10 +27,15 @@ import 'results_screen.dart';
 
 /// Hosts one run: the renderer, the input surface, the HUD, and the pause sheet.
 class GameplayScreen extends StatefulWidget {
-  const GameplayScreen({super.key, this.level, this.endless = false});
+  const GameplayScreen({super.key, this.level, this.endless = false, this.event});
 
   final LevelDef? level;
   final bool endless;
+
+  /// Set only when the run was started from the weekly event screen. It layers
+  /// the event's modifiers on top of the perk board and routes the result to
+  /// the event standings instead of the endless record.
+  final VolcanicEventDef? event;
 
   @override
   State<GameplayScreen> createState() => _GameplayScreenState();
@@ -62,7 +68,7 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
         harvestBonus: game.bonus(UpgradeTrack.harvest),
         laneControls: settings.controls == ControlScheme.lanes,
         particleScale: settings.quality.particleScale,
-        modifiers: game.buildRunModifiers(),
+        modifiers: game.buildRunModifiers(event: widget.event),
       ),
     );
 
@@ -100,8 +106,9 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
     final game = context.read<GameState>();
     final audio = context.read<AudioService>();
 
+    game.beginRunResolution();
     game.recordDiscoveries(_engine.discovered);
-    game.applyRunResult(result);
+    game.applyRunResult(result, event: widget.event);
     audio.play(victory ? Sfx.levelComplete : Sfx.levelFailed);
 
     await Future<void>.delayed(const Duration(milliseconds: 620));
@@ -182,7 +189,11 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
               ValueListenableBuilder<int>(
                 valueListenable: _engine.hudTick,
                 builder: (context, _, _) => _engine.phase == RushPhase.paused
-                    ? _PauseOverlay(engine: _engine, onQuit: _abandon)
+                    ? _PauseOverlay(
+                        engine: _engine,
+                        onQuit: _abandon,
+                        onRestart: _restart,
+                      )
                     : const SizedBox.shrink(),
               ),
             ],
@@ -195,6 +206,22 @@ class _GameplayScreenState extends State<GameplayScreen> with SingleTickerProvid
   void _abandon() {
     context.read<AudioService>().cancel();
     _engine.abandon();
+  }
+
+  /// Ends the current run without opening the results screen and mounts a
+  /// fresh gameplay screen with the same launch args. The old State's dispose
+  /// releases the ticker and the engine, so no simulation ever double-runs.
+  void _restart() {
+    context.read<AudioService>().confirm();
+    _handledEnd = true;
+    _ticker.stop();
+    Navigator.of(context).pushReplacement(
+      fadeThrough(GameplayScreen(
+        level: widget.level,
+        endless: widget.endless,
+        event: widget.event,
+      )),
+    );
   }
 }
 
@@ -749,10 +776,15 @@ class _IntroOverlay extends StatelessWidget {
 }
 
 class _PauseOverlay extends StatelessWidget {
-  const _PauseOverlay({required this.engine, required this.onQuit});
+  const _PauseOverlay({
+    required this.engine,
+    required this.onQuit,
+    required this.onRestart,
+  });
 
   final RushEngine engine;
   final VoidCallback onQuit;
+  final VoidCallback onRestart;
 
   @override
   Widget build(BuildContext context) {
@@ -822,10 +854,20 @@ class _PauseOverlay extends StatelessWidget {
                             },
                           ),
                         ),
-                        const SizedBox(width: Dim.m),
+                        const SizedBox(width: Dim.s),
                         Expanded(
                           child: LavaButton(
-                            label: 'Abandon run',
+                            label: 'Restart',
+                            icon: Icons.refresh_rounded,
+                            tone: ButtonTone.ghost,
+                            expand: true,
+                            onPressed: onRestart,
+                          ),
+                        ),
+                        const SizedBox(width: Dim.s),
+                        Expanded(
+                          child: LavaButton(
+                            label: 'Abandon',
                             icon: Icons.exit_to_app_rounded,
                             tone: ButtonTone.danger,
                             expand: true,

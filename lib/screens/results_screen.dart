@@ -37,11 +37,14 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   late final ConfettiController _confetti;
+  late final RunReward _reward;
 
   @override
   void initState() {
     super.initState();
     _confetti = ConfettiController(duration: const Duration(milliseconds: 1400));
+    // Snapshot once: the results screen owns the bonus payload for this run.
+    _reward = context.read<GameState>().lastRunReward;
     if (widget.result.victory) _confetti.play();
   }
 
@@ -173,8 +176,197 @@ class _ResultsScreenState extends State<ResultsScreen> {
               colors: const [Palette.lava, Palette.ember, Palette.crimson, Palette.metal],
             ),
           ),
+          if (!_reward.isEmpty)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: Dim.s),
+                  child: _RewardBanner(reward: _reward),
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// A transient top-of-screen banner that celebrates freshly-unlocked
+/// achievements and a first perfect clear, then slides away on its own so it
+/// never covers the run breakdown for long.
+class _RewardBanner extends StatefulWidget {
+  const _RewardBanner({required this.reward});
+
+  final RunReward reward;
+
+  @override
+  State<_RewardBanner> createState() => _RewardBannerState();
+}
+
+class _RewardBannerState extends State<_RewardBanner> {
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _shown = true);
+    });
+    Future.delayed(const Duration(milliseconds: 5200), () {
+      if (mounted) setState(() => _shown = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reward = widget.reward;
+    return IgnorePointer(
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 460),
+        curve: Curves.easeOutCubic,
+        offset: _shown ? Offset.zero : const Offset(0, -0.7),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 460),
+          opacity: _shown ? 1 : 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: GlassPanel(
+              padding: const EdgeInsets.symmetric(horizontal: Dim.m, vertical: Dim.s),
+              accent: Palette.warning,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.redeem_rounded, size: 14, color: Palette.warning),
+                      const SizedBox(width: 6),
+                      Text('REWARDS EARNED', style: AppText.eyebrow.copyWith(color: Palette.warning)),
+                    ],
+                  ),
+                  for (final def in reward.achievements) ...[
+                    const SizedBox(height: 7),
+                    _AchievementRow(def: def),
+                  ],
+                  if (reward.hasChest) ...[
+                    const SizedBox(height: 7),
+                    _ChestRow(chest: reward.chest),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementRow extends StatelessWidget {
+  const _AchievementRow({required this.def});
+
+  final AchievementDef def;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = def.tier.color;
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: Dim.brS,
+            color: color.withValues(alpha: 0.16),
+            border: Border.all(color: color.withValues(alpha: 0.42)),
+          ),
+          child: Icon(def.icon, size: 16, color: color),
+        ),
+        const SizedBox(width: Dim.s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                def.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label.copyWith(fontSize: 12),
+              ),
+              Text(
+                'Achievement · ${def.tier.label}',
+                style: AppText.eyebrow.copyWith(fontSize: 7.5, color: Palette.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: Dim.s),
+        Text(
+          def.tier.rewardLabel,
+          style: AppText.label.copyWith(fontSize: 11.5, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChestRow extends StatelessWidget {
+  const _ChestRow({required this.chest});
+
+  final Map<ResourceKind, int> chest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: Dim.brS,
+            color: Palette.ember.withValues(alpha: 0.16),
+            border: Border.all(color: Palette.ember.withValues(alpha: 0.42)),
+          ),
+          child: const Icon(Icons.card_giftcard_rounded, size: 16, color: Palette.ember),
+        ),
+        const SizedBox(width: Dim.s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Perfect clear',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label.copyWith(fontSize: 12, color: Palette.ember),
+              ),
+              Text(
+                'First three-star chest',
+                style: AppText.eyebrow.copyWith(fontSize: 7.5, color: Palette.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: Dim.s),
+        for (final entry in chest.entries)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SpriteTile(name: entry.key.sprite, size: 18),
+                const SizedBox(width: 3),
+                Text(
+                  '+${entry.value}',
+                  style: AppText.label.copyWith(fontSize: 11.5, color: entry.key.color),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -213,12 +405,13 @@ class _VerdictPlate extends StatelessWidget {
             style: AppText.hero.copyWith(fontSize: 42, color: victory ? Palette.textPrimary : Palette.danger),
           ),
           const SizedBox(height: 4),
-          Text(
-            victory
-                ? 'The flow held its heat and took the whole channel.'
-                : 'Structural integrity gave out before the channel ended.',
-            style: AppText.body14,
-          ),
+          if (victory)
+            Text(
+              'The flow held its heat and took the whole channel.',
+              style: AppText.body14,
+            )
+          else
+            _DeathRecap(cause: result.deathCause, label: result.deathLabel),
           if (!endless) ...[
             const SizedBox(height: Dim.l),
             StarRow(filled: stars, size: 28),
@@ -256,6 +449,109 @@ class _VerdictPlate extends StatelessWidget {
       ),
     ).animate().fadeIn(duration: 340.ms).slideX(begin: -0.05, curve: Curves.easeOutCubic);
   }
+}
+
+/// Post-mortem card on the defeat plate. Names what landed the killing blow
+/// and points at the one lever (upgrade / perk / mutation) that would have
+/// changed the outcome.
+class _DeathRecap extends StatelessWidget {
+  const _DeathRecap({required this.cause, required this.label});
+
+  final DeathCause cause;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cause == DeathCause.none) {
+      return Text(
+        'Structural integrity gave out before the channel ended.',
+        style: AppText.body14,
+      );
+    }
+    final tint = Palette.danger;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(Dim.radiusS),
+        border: Border.all(color: tint.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: tint.withValues(alpha: 0.36)),
+            ),
+            child: Icon(_iconFor(cause), size: 18, color: tint),
+          ),
+          const SizedBox(width: Dim.s),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TAKEN OUT BY',
+                  style: AppText.eyebrow.copyWith(fontSize: 9, color: tint),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _titleFor(cause, label),
+                  style: AppText.label.copyWith(fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _hintFor(cause),
+                  style: AppText.body14.copyWith(fontSize: 11.5, color: Palette.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 180.ms, duration: 320.ms).slideY(begin: 0.12, curve: Curves.easeOutCubic);
+  }
+
+  static IconData _iconFor(DeathCause c) => switch (c) {
+    DeathCause.enemyBody => Icons.pets_rounded,
+    DeathCause.obstacle => Icons.construction_rounded,
+    DeathCause.bossShot => Icons.flare_rounded,
+    DeathCause.bossBody => Icons.warning_amber_rounded,
+    DeathCause.heatCollapse => Icons.ac_unit_rounded,
+    DeathCause.none => Icons.help_outline_rounded,
+  };
+
+  static String _titleFor(DeathCause c, String? label) => switch (c) {
+    DeathCause.enemyBody =>
+        label == null ? 'An enemy body slam' : 'A $label body slam',
+    DeathCause.obstacle =>
+        label == null ? 'An obstacle in the channel' : '$label in the channel',
+    DeathCause.bossShot =>
+        label == null ? 'A boss volley' : "$label's volley",
+    DeathCause.bossBody =>
+        label == null ? 'A boss slam' : 'Slamming into $label',
+    DeathCause.heatCollapse => 'Your core went cold',
+    DeathCause.none => 'Structural integrity failed',
+  };
+
+  static String _hintFor(DeathCause c) => switch (c) {
+    DeathCause.enemyBody =>
+      'Heat was below its armour. Lift Core Temperature or draft Obsidian Skin.',
+    DeathCause.obstacle =>
+      'Not enough mass to shatter it. Grow Mass Density or draft Wrecking Flow.',
+    DeathCause.bossShot =>
+      'Bank Obsidian Plating and dodge sooner, or surge straight through the volley.',
+    DeathCause.bossBody =>
+      'Erupt or surge before contact. Kindling and Giantslayer stack well here.',
+    DeathCause.heatCollapse =>
+      'Chase heat vents and raise Core Temperature so the flow keeps melting.',
+    DeathCause.none =>
+      'Structural integrity gave out before the channel ended.',
+  };
 }
 
 class _PerformanceGrid extends StatelessWidget {

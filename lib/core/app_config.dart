@@ -4,7 +4,7 @@ class AppConfig {
 
   static const String appName = 'Lavawake Rush';
   static const String tagline = 'Awaken the flow. Devour the mountain.';
-  static const String version = '1.0.0';
+  static const String version = '1.0.3';
 
   static const String bundleId = 'com.lavawake.rushgame';
   static const String appStoreId = '6792859673';

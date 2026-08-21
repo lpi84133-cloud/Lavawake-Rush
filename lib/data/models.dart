@@ -330,6 +330,25 @@ extension AchievementTierInfo on AchievementTier {
     AchievementTier.gold => 'Gold',
     AchievementTier.molten => 'Molten',
   };
+
+  /// Resource paid out when an achievement of this tier is first unlocked.
+  /// A `null` kind means the tier pays a Crucible perk point instead.
+  ResourceKind? get rewardKind => switch (this) {
+    AchievementTier.bronze => ResourceKind.magma,
+    AchievementTier.silver => ResourceKind.shards,
+    AchievementTier.gold => ResourceKind.cores,
+    AchievementTier.molten => null,
+  };
+
+  int get rewardAmount => switch (this) {
+    AchievementTier.bronze => 150,
+    AchievementTier.silver => 12,
+    AchievementTier.gold => 5,
+    AchievementTier.molten => 1,
+  };
+
+  String get rewardLabel =>
+      rewardKind == null ? '+1 Perk Point' : '+$rewardAmount ${rewardKind!.label}';
 }
 
 @immutable
@@ -353,6 +372,10 @@ class AchievementDef {
   final IconData icon;
 }
 
+/// What finally cracked the flow. Tracked so the results screen can tell the
+/// player which system to shore up instead of the generic "integrity gave out".
+enum DeathCause { none, enemyBody, obstacle, bossShot, bossBody, heatCollapse }
+
 /// Outcome of one run, handed from the gameplay screen to the results screen.
 @immutable
 class RunResult {
@@ -372,6 +395,9 @@ class RunResult {
     required this.flawless,
     required this.essencesUsed,
     required this.loot,
+    this.formsSeen = const {},
+    this.deathCause = DeathCause.none,
+    this.deathLabel,
   });
 
   final int levelIndex;
@@ -389,4 +415,16 @@ class RunResult {
   final bool flawless;
   final Set<Essence> essencesUsed;
   final Map<ResourceKind, int> loot;
+
+  /// Fusion forms the flow actually held at some point during the run, used to
+  /// reveal recipes in the Forms Codex the first time they are achieved.
+  final Set<String> formsSeen;
+
+  /// What landed the killing blow. `DeathCause.none` for victories, abandons
+  /// and any legacy result loaded before this field existed.
+  final DeathCause deathCause;
+
+  /// Human-readable name that goes with [deathCause] (enemy name, obstacle
+  /// name or boss name). `null` when the cause has no specific label.
+  final String? deathLabel;
 }

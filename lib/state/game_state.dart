@@ -6,6 +6,7 @@ import '../data/game_data.dart';
 import '../data/models.dart';
 import '../data/mutations.dart';
 import '../data/perks.dart';
+import '../data/volcanic_events.dart';
 import 'save_service.dart';
 
 /// Live progress for one daily objective.
@@ -93,6 +94,26 @@ class LeaderboardEntry {
   final bool isPlayer;
 }
 
+/// The bonus payload resolved for the run that just finished. The results
+/// screen reads this once to surface freshly-unlocked achievements, their tier
+/// rewards and any first-time three-star chest — none of which alter the run's
+/// own loot line.
+class RunReward {
+  const RunReward({required this.achievements, required this.chest});
+
+  /// Achievements unlocked by the run. Each carries its own tier reward, already
+  /// paid into the wallet.
+  final List<AchievementDef> achievements;
+
+  /// The first-time three-star chest, if this run earned one. Empty otherwise.
+  final Map<ResourceKind, int> chest;
+
+  bool get hasChest => chest.isNotEmpty;
+  bool get isEmpty => achievements.isEmpty && chest.isEmpty;
+
+  static const RunReward none = RunReward(achievements: [], chest: {});
+}
+
 /// The single owner of all mutable player progress.
 class GameState extends ChangeNotifier {
   GameState(this._save) {
@@ -122,8 +143,22 @@ class GameState extends ChangeNotifier {
   final Map<int, int> levelStars = {};
   final Map<int, int> levelBestScore = {};
   final Set<String> discovered = {};
+  final Set<String> discoveredForms = {};
   final Set<String> unlockedSkins = {'skin_ember'};
   final Set<String> unlockedAchievements = {};
+
+  /// Levels that have already paid out their one-time three-star chest, so the
+  /// bonus never repeats no matter how often a level is replayed.
+  final Set<int> tripleStarLevels = {};
+
+  // Scratch state for resolving a single run's bonuses, snapshotted into
+  // [lastRunReward] once the run has been folded in.
+  List<AchievementDef> _runAchievements = [];
+  Map<ResourceKind, int> _runChest = {};
+
+  /// The bonus payload for the most recently resolved run; consumed by the
+  /// results screen.
+  RunReward lastRunReward = RunReward.none;
   final List<QuestProgress> quests = [];
   final List<int> recentScores = [];
   final List<int> weeklyMinutes = List<int>.filled(7, 0);
@@ -132,6 +167,15 @@ class GameState extends ChangeNotifier {
   LifetimeStats stats = LifetimeStats();
   int endlessBest = 0;
   String questDay = '';
+
+  /// Weekly event progress. [eventWeek] is the calendar week the rest of these
+  /// numbers belong to; when the week rolls over they are archived into
+  /// [eventHistory] and reset.
+  final List<QuestProgress> eventQuests = [];
+  final Map<String, int> eventHistory = {};
+  String eventWeek = '';
+  int eventBest = 0;
+  int eventRuns = 0;
 
   // -------------------------------------------------------------- derivations
 
@@ -256,6 +300,47 @@ class GameState extends ChangeNotifier {
 
   int _bestLevelScore() => levelBestScore.values.fold(0, math.max);
 
+  // ------------------------------------------------------------ weekly event
+
+  VolcanicEventDef get activeEvent => VolcanicCalendar.current();
+
+  VolcanicEventDef get nextEvent => VolcanicCalendar.next();
+
+  Duration get eventRemaining {
+    final left = VolcanicCalendar.remaining();
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  int get eventQuestsReady =>
+      eventQuests.where((q) => q.complete && !q.claimed).length;
+
+  /// Separate from the campaign board so a buffed event score never lands on
+  /// the standings the rest of the game is measured against. Rival numbers are
+  /// seeded from the week, so they hold still until the event rotates.
+  List<LeaderboardEntry> get eventLeaderboard {
+    final rng = math.Random(VolcanicCalendar.weekNumber() * 977 + 31);
+    final base = 5200 + levelsCleared * 820 + playerLevel * 260;
+    final entries = <LeaderboardEntry>[
+      for (var i = 0; i < GameData.rivalNames.length; i++)
+        LeaderboardEntry(
+          name: GameData.rivalNames[i],
+          score: base + (GameData.rivalNames.length - i) * 1040 + rng.nextInt(1500),
+          isPlayer: false,
+        ),
+      LeaderboardEntry(name: playerName, score: eventBest, isPlayer: true),
+    ]..sort((a, b) => b.score.compareTo(a.score));
+    return entries;
+  }
+
+  /// One-based standing of the player on [eventLeaderboard].
+  int get eventRank {
+    final board = eventLeaderboard;
+    for (var i = 0; i < board.length; i++) {
+      if (board[i].isPlayer) return i + 1;
+    }
+    return board.length;
+  }
+
   String nextTip() {
     lastTipIndex = (lastTipIndex + 1) % GameData.tips.length;
     _persist();
@@ -344,12 +429,17 @@ class GameState extends ChangeNotifier {
 
   /// Builds the pre-seeded [RunModifiers] a fresh run starts from, folding in
   /// every purchased perk rank.
-  RunModifiers buildRunModifiers() {
+  ///
+  /// [event] is only ever passed by a run launched from the weekly event
+  /// screen; campaign and rush runs call this with no argument and are
+  /// unaffected by whichever event happens to be live.
+  RunModifiers buildRunModifiers({VolcanicEventDef? event}) {
     final mods = RunModifiers();
     for (final def in kPerks) {
       final rank = perkRank(def.id);
       if (rank > 0) def.apply(mods, rank);
     }
+    event?.apply(mods);
     return mods;
   }
 
@@ -377,8 +467,24 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
+  /// Event objectives pay out exactly like daily ones, so they feed the same
+  /// achievement counter.
+  bool claimEventQuest(QuestProgress quest) => claimQuest(quest);
+
   /// Folds a finished run into every progress system at once.
-  void applyRunResult(RunResult result) {
+  ///
+  /// [event] is set only for runs started from the weekly event screen. Such a
+  /// run feeds the event board and its objectives instead of the endless
+  /// record, so a modifier-buffed score never displaces an honest Rush Mode
+  /// personal best.
+  /// Resets the per-run bonus scratch. Call once before folding a finished run
+  /// in (including its discoveries) so [lastRunReward] reflects only this run.
+  void beginRunResolution() {
+    _runAchievements = [];
+    _runChest = {};
+  }
+
+  void applyRunResult(RunResult result, {VolcanicEventDef? event}) {
     stats.runs++;
     if (result.victory) {
       stats.victories++;
@@ -397,6 +503,7 @@ class GameState extends ChangeNotifier {
     for (final essence in result.essencesUsed) {
       stats.essenceUse[essence] = stats.essenceUse[essence]! + 1;
     }
+    discoveredForms.addAll(result.formsSeen);
 
     for (final entry in result.loot.entries) {
       resources[entry.key] = resources[entry.key]! + entry.value;
@@ -411,7 +518,11 @@ class GameState extends ChangeNotifier {
     final weekday = DateTime.now().weekday - 1;
     weeklyMinutes[weekday] = weeklyMinutes[weekday] + math.max(1, result.duration.inSeconds ~/ 60);
 
-    if (result.isEndless) {
+    if (event != null) {
+      eventRuns++;
+      eventBest = math.max(eventBest, result.score);
+      _advanceQuestList(eventQuests, result);
+    } else if (result.isEndless) {
       endlessBest = math.max(endlessBest, result.score);
     } else {
       final stars = result.victory ? _starsFor(result) : 0;
@@ -419,12 +530,32 @@ class GameState extends ChangeNotifier {
       if (result.score > (levelBestScore[result.levelIndex] ?? 0)) {
         levelBestScore[result.levelIndex] = result.score;
       }
+      // A perfect three-star clear pays a one-time chest, scaled by how deep the
+      // level sits in the mountain, to reward mastering the campaign.
+      if (stars >= 3 && !tripleStarLevels.contains(result.levelIndex)) {
+        tripleStarLevels.add(result.levelIndex);
+        final region = GameData.levelAt(result.levelIndex).regionIndex;
+        _grantChest(ResourceKind.cores, 2 + region);
+        _grantChest(ResourceKind.shards, 15 + region * 5);
+      }
     }
 
     _advanceQuests(result);
     _refreshUnlocks();
+    lastRunReward = RunReward(
+      achievements: List.of(_runAchievements),
+      chest: Map.of(_runChest),
+    );
     _persist();
     notifyListeners();
+  }
+
+  /// Adds a three-star chest resource both to the wallet and to the current
+  /// run's scratch tally so the results screen can show it apart from run loot.
+  void _grantChest(ResourceKind kind, int amount) {
+    resources[kind] = resources[kind]! + amount;
+    stats.earned[kind] = stats.earned[kind]! + amount;
+    _runChest[kind] = (_runChest[kind] ?? 0) + amount;
   }
 
   void recordDiscovery(String enemyId) {
@@ -465,11 +596,14 @@ class GameState extends ChangeNotifier {
     _lastRewardedLevel = 1;
     levelStars.clear();
     levelBestScore.clear();
+    tripleStarLevels.clear();
     discovered.clear();
+    discoveredForms.clear();
     unlockedSkins
       ..clear()
       ..add('skin_ember');
     unlockedAchievements.clear();
+    lastRunReward = RunReward.none;
     recentScores.clear();
     for (var i = 0; i < weeklyMinutes.length; i++) {
       weeklyMinutes[i] = 0;
@@ -477,7 +611,13 @@ class GameState extends ChangeNotifier {
     stats = LifetimeStats();
     endlessBest = 0;
     questDay = '';
+    eventWeek = '';
+    eventBest = 0;
+    eventRuns = 0;
+    eventHistory.clear();
+    eventQuests.clear();
     _rollQuests();
+    _rollEventQuests();
     _seedRivals();
     _save.wipeProgress();
     _persist();
@@ -501,8 +641,10 @@ class GameState extends ChangeNotifier {
     return stars.clamp(1, 3);
   }
 
-  void _advanceQuests(RunResult result) {
-    for (final quest in quests) {
+  void _advanceQuests(RunResult result) => _advanceQuestList(quests, result);
+
+  void _advanceQuestList(List<QuestProgress> board, RunResult result) {
+    for (final quest in board) {
       if (quest.claimed) continue;
       quest.progress += switch (quest.def.metric) {
         QuestMetric.absorb => result.absorbed,
@@ -540,9 +682,60 @@ class GameState extends ChangeNotifier {
     if (discovered.length >= GameData.enemies.length) grant('skin_void');
 
     for (final def in GameData.achievements) {
-      if (achievementProgress(def) >= def.target) unlockedAchievements.add(def.id);
+      if (unlockedAchievements.contains(def.id)) continue;
+      if (achievementProgress(def) >= def.target) {
+        unlockedAchievements.add(def.id);
+        _runAchievements.add(def);
+        _grantAchievementReward(def);
+      }
     }
   }
+
+  /// Pays the tier reward for a newly-unlocked achievement and records it in the
+  /// current run's scratch bonus so the results screen can surface it.
+  void _grantAchievementReward(AchievementDef def) {
+    final kind = def.tier.rewardKind;
+    final amount = def.tier.rewardAmount;
+    if (kind == null) {
+      perkPoints += amount;
+    } else {
+      resources[kind] = resources[kind]! + amount;
+      stats.earned[kind] = stats.earned[kind]! + amount;
+    }
+  }
+
+  bool isFormDiscovered(FormDef form) =>
+      form.recipe.isEmpty || discoveredForms.contains(form.id);
+
+  int get discoveredFormsCount =>
+      GameData.forms.where(isFormDiscovered).length;
+
+  /// Returns (current, max) unlock progress for a skin, or null for boolean /
+  /// already-unlocked conditions that cannot be expressed as a number.
+  (int, int)? skinProgress(String id) {
+    if (unlockedSkins.contains(id)) return null;
+    return switch (id) {
+      'skin_crimson' => (math.min(stats.absorbed, 100), 100),
+      'skin_charcoal' => (math.min(stats.obstacles, 150), 150),
+      'skin_obsidian' => (_regionLevelsDone(0), _regionLevelsTotal(0)),
+      'skin_glacier' => (_regionLevelsDone(1), _regionLevelsTotal(1)),
+      'skin_cryo' => (math.min(stats.essenceUse[Essence.rime]!, 40), 40),
+      'skin_bronze' => (_regionLevelsDone(4), _regionLevelsTotal(4)),
+      'skin_amethyst' => (_regionLevelsDone(3), _regionLevelsTotal(3)),
+      'skin_sulphur' => (math.min(stats.bestCombo, 30), 30),
+      'skin_prism' => (math.min(bossesFelled(), 6), 6),
+      'skin_void' => (math.min(discovered.length, GameData.enemies.length), GameData.enemies.length),
+      'skin_venom' => (math.min(stats.flawlessRuns, 1), 1),
+      _ => null,
+    };
+  }
+
+  int _regionLevelsDone(int regionIndex) => GameData.levels
+      .where((l) => l.regionIndex == regionIndex && (levelStars[l.globalIndex] ?? 0) > 0)
+      .length;
+
+  int _regionLevelsTotal(int regionIndex) =>
+      GameData.levels.where((l) => l.regionIndex == regionIndex).length;
 
   bool _regionCleared(int regionIndex) {
     final region = GameData.regions[regionIndex];
@@ -575,6 +768,41 @@ class GameState extends ChangeNotifier {
   static String _todayKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  // ------------------------------------------------------------ weekly event
+
+  /// Rolls the event board over when the calendar week changes. The finished
+  /// week's best score is kept so the event screen can show a personal history.
+  void refreshEventIfNeeded() {
+    final key = VolcanicCalendar.weekKey();
+    if (eventWeek == key && eventQuests.isNotEmpty) return;
+    if (eventWeek.isNotEmpty && eventBest > 0) {
+      eventHistory[eventWeek] = math.max(eventHistory[eventWeek] ?? 0, eventBest);
+      // A long history is never displayed in full and only bloats the save.
+      if (eventHistory.length > 24) {
+        final oldest = eventHistory.keys.toList()..sort();
+        for (final stale in oldest.take(eventHistory.length - 24)) {
+          eventHistory.remove(stale);
+        }
+      }
+    }
+    eventWeek = key;
+    eventBest = 0;
+    eventRuns = 0;
+    _rollEventQuests();
+    _persist();
+    notifyListeners();
+  }
+
+  void _rollEventQuests() {
+    eventQuests
+      ..clear()
+      ..addAll(
+        activeEvent.quests.map(
+          (def) => QuestProgress(def: def, progress: 0, claimed: false),
+        ),
+      );
   }
 
   void _seedRivals() {
@@ -632,6 +860,8 @@ class GameState extends ChangeNotifier {
       if (index != null && value is int) levelBestScore[index] = value;
     });
     discovered.addAll((data['discovered'] as List?)?.whereType<String>() ?? const []);
+    discoveredForms.addAll((data['discoveredForms'] as List?)?.whereType<String>() ?? const []);
+    tripleStarLevels.addAll((data['tripleStarLevels'] as List?)?.whereType<int>() ?? const []);
     unlockedSkins.addAll((data['unlockedSkins'] as List?)?.whereType<String>() ?? const []);
     unlockedAchievements.addAll((data['achievements'] as List?)?.whereType<String>() ?? const []);
     recentScores.addAll((data['recentScores'] as List?)?.whereType<int>() ?? const []);
@@ -657,6 +887,29 @@ class GameState extends ChangeNotifier {
       );
     }
     if (quests.isEmpty) _rollQuests();
+
+    // Every event key defaults, so a save written before events existed loads
+    // untouched and simply rolls a fresh board on first open.
+    eventWeek = data['eventWeek'] as String? ?? '';
+    eventBest = data['eventBest'] as int? ?? 0;
+    eventRuns = data['eventRuns'] as int? ?? 0;
+    final history = data['eventHistory'] as Map<String, dynamic>? ?? const {};
+    history.forEach((key, value) {
+      if (value is int) eventHistory[key] = value;
+    });
+    for (final raw in data['eventQuests'] as List? ?? const []) {
+      if (raw is! Map) continue;
+      final def = VolcanicCalendar.questById(raw['id'] as String? ?? '');
+      if (def == null) continue;
+      eventQuests.add(
+        QuestProgress(
+          def: def,
+          progress: raw['progress'] as int? ?? 0,
+          claimed: raw['claimed'] as bool? ?? false,
+        ),
+      );
+    }
+
     _seedRivals();
   }
 
@@ -679,6 +932,8 @@ class GameState extends ChangeNotifier {
       'levelStars': {for (final e in levelStars.entries) e.key.toString(): e.value},
       'levelBestScore': {for (final e in levelBestScore.entries) e.key.toString(): e.value},
       'discovered': discovered.toList(),
+      'discoveredForms': discoveredForms.toList(),
+      'tripleStarLevels': tripleStarLevels.toList(),
       'unlockedSkins': unlockedSkins.toList(),
       'achievements': unlockedAchievements.toList(),
       'recentScores': recentScores,
@@ -686,6 +941,14 @@ class GameState extends ChangeNotifier {
       'stats': stats.toJson(),
       'quests': [
         for (final q in quests) {'id': q.def.id, 'progress': q.progress, 'claimed': q.claimed},
+      ],
+      'eventWeek': eventWeek,
+      'eventBest': eventBest,
+      'eventRuns': eventRuns,
+      'eventHistory': eventHistory,
+      'eventQuests': [
+        for (final q in eventQuests)
+          {'id': q.def.id, 'progress': q.progress, 'claimed': q.claimed},
       ],
     });
   }

@@ -13,6 +13,7 @@ import '../core/widgets/lava_background.dart';
 import '../data/asset_catalog.dart';
 import '../data/game_data.dart';
 import '../data/models.dart';
+import '../data/volcanic_events.dart';
 import '../state/audio_service.dart';
 import '../state/game_state.dart';
 import 'about_screen.dart';
@@ -28,6 +29,7 @@ import 'settings_screen.dart';
 import 'skins_screen.dart';
 import 'tutorial_screen.dart';
 import 'upgrades_screen.dart';
+import 'volcanic_event_screen.dart';
 import 'web_page_screen.dart';
 
 /// The hub. Deliberately asymmetric: a tall branding column on the left, a dense
@@ -158,7 +160,9 @@ class _BrandColumn extends StatelessWidget {
           AppConfig.tagline,
           style: AppText.body14.copyWith(fontSize: 12.5, color: Palette.textMuted),
         ),
-        const SizedBox(height: Dim.m),
+        const SizedBox(height: Dim.s),
+        _EventBanner(game: game),
+        const SizedBox(height: Dim.s),
         GlassPanel(
           padding: const EdgeInsets.all(Dim.m),
           accent: region.accent,
@@ -169,9 +173,14 @@ class _BrandColumn extends StatelessWidget {
                 children: [
                   Text('UP NEXT', style: AppText.eyebrow.copyWith(color: region.accent)),
                   const Spacer(),
-                  Text(
-                    'LEVEL ${next.globalIndex + 1} / ${GameData.levelCount}',
-                    style: AppText.eyebrow,
+                  Flexible(
+                    child: Text(
+                      'LEVEL ${next.globalIndex + 1} / ${GameData.levelCount}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: AppText.eyebrow,
+                    ),
                   ),
                 ],
               ),
@@ -213,6 +222,86 @@ class _BrandColumn extends StatelessWidget {
         ),
       ],
     ).animate().fadeIn(duration: 380.ms).slideX(begin: -0.06, curve: Curves.easeOutCubic);
+  }
+}
+
+/// Entry point for the weekly event, sitting above the campaign panel so a
+/// limited-time thing reads as limited-time. Kept out of the destination grid
+/// on purpose: a tenth tile would push that grid to a fourth row and overflow
+/// it on landscape phones.
+class _EventBanner extends StatelessWidget {
+  const _EventBanner({required this.game});
+
+  final GameState game;
+
+  @override
+  Widget build(BuildContext context) {
+    final event = game.activeEvent;
+    final ready = game.eventQuestsReady;
+
+    return GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: Dim.m, vertical: 8),
+      radius: Dim.radiusM,
+      accent: event.accent,
+      onTap: () {
+        context.read<AudioService>().tap();
+        goTo(context, const VolcanicEventScreen());
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: event.accent.withValues(alpha: 0.16),
+              border: Border.all(color: event.accent.withValues(alpha: 0.30)),
+            ),
+            child: Icon(event.icon, size: 14, color: event.accent),
+          ),
+          const SizedBox(width: Dim.s),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'WEEKLY EVENT  ${VolcanicCalendar.formatRemainingShort(game.eventRemaining)} LEFT',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.eyebrow.copyWith(fontSize: 8.5, color: event.accent),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  event.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.subtitle.copyWith(fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          if (ready > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Palette.lava,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '$ready',
+                style: AppText.eyebrow.copyWith(
+                  color: Colors.white,
+                  letterSpacing: 0,
+                  fontSize: 9,
+                ),
+              ),
+            ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, size: 16, color: Palette.textMuted),
+        ],
+      ),
+    );
   }
 }
 
@@ -414,10 +503,6 @@ class _UtilityRail extends StatelessWidget {
 
     return Row(
       children: [
-        Text(
-          'v${AppConfig.version}  ${AppConfig.bundleId}',
-          style: AppText.eyebrow.copyWith(letterSpacing: 0.8, fontSize: 9.5),
-        ),
         const Spacer(),
         for (final item in items)
           Padding(
