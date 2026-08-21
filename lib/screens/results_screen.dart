@@ -405,12 +405,13 @@ class _VerdictPlate extends StatelessWidget {
             style: AppText.hero.copyWith(fontSize: 42, color: victory ? Palette.textPrimary : Palette.danger),
           ),
           const SizedBox(height: 4),
-          Text(
-            victory
-                ? 'The flow held its heat and took the whole channel.'
-                : 'Structural integrity gave out before the channel ended.',
-            style: AppText.body14,
-          ),
+          if (victory)
+            Text(
+              'The flow held its heat and took the whole channel.',
+              style: AppText.body14,
+            )
+          else
+            _DeathRecap(cause: result.deathCause, label: result.deathLabel),
           if (!endless) ...[
             const SizedBox(height: Dim.l),
             StarRow(filled: stars, size: 28),
@@ -448,6 +449,109 @@ class _VerdictPlate extends StatelessWidget {
       ),
     ).animate().fadeIn(duration: 340.ms).slideX(begin: -0.05, curve: Curves.easeOutCubic);
   }
+}
+
+/// Post-mortem card on the defeat plate. Names what landed the killing blow
+/// and points at the one lever (upgrade / perk / mutation) that would have
+/// changed the outcome.
+class _DeathRecap extends StatelessWidget {
+  const _DeathRecap({required this.cause, required this.label});
+
+  final DeathCause cause;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cause == DeathCause.none) {
+      return Text(
+        'Structural integrity gave out before the channel ended.',
+        style: AppText.body14,
+      );
+    }
+    final tint = Palette.danger;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(Dim.radiusS),
+        border: Border.all(color: tint.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: tint.withValues(alpha: 0.36)),
+            ),
+            child: Icon(_iconFor(cause), size: 18, color: tint),
+          ),
+          const SizedBox(width: Dim.s),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TAKEN OUT BY',
+                  style: AppText.eyebrow.copyWith(fontSize: 9, color: tint),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _titleFor(cause, label),
+                  style: AppText.label.copyWith(fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _hintFor(cause),
+                  style: AppText.body14.copyWith(fontSize: 11.5, color: Palette.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 180.ms, duration: 320.ms).slideY(begin: 0.12, curve: Curves.easeOutCubic);
+  }
+
+  static IconData _iconFor(DeathCause c) => switch (c) {
+    DeathCause.enemyBody => Icons.pets_rounded,
+    DeathCause.obstacle => Icons.construction_rounded,
+    DeathCause.bossShot => Icons.flare_rounded,
+    DeathCause.bossBody => Icons.warning_amber_rounded,
+    DeathCause.heatCollapse => Icons.ac_unit_rounded,
+    DeathCause.none => Icons.help_outline_rounded,
+  };
+
+  static String _titleFor(DeathCause c, String? label) => switch (c) {
+    DeathCause.enemyBody =>
+        label == null ? 'An enemy body slam' : 'A $label body slam',
+    DeathCause.obstacle =>
+        label == null ? 'An obstacle in the channel' : '$label in the channel',
+    DeathCause.bossShot =>
+        label == null ? 'A boss volley' : "$label's volley",
+    DeathCause.bossBody =>
+        label == null ? 'A boss slam' : 'Slamming into $label',
+    DeathCause.heatCollapse => 'Your core went cold',
+    DeathCause.none => 'Structural integrity failed',
+  };
+
+  static String _hintFor(DeathCause c) => switch (c) {
+    DeathCause.enemyBody =>
+      'Heat was below its armour. Lift Core Temperature or draft Obsidian Skin.',
+    DeathCause.obstacle =>
+      'Not enough mass to shatter it. Grow Mass Density or draft Wrecking Flow.',
+    DeathCause.bossShot =>
+      'Bank Obsidian Plating and dodge sooner, or surge straight through the volley.',
+    DeathCause.bossBody =>
+      'Erupt or surge before contact. Kindling and Giantslayer stack well here.',
+    DeathCause.heatCollapse =>
+      'Chase heat vents and raise Core Temperature so the flow keeps melting.',
+    DeathCause.none =>
+      'Structural integrity gave out before the channel ended.',
+  };
 }
 
 class _PerformanceGrid extends StatelessWidget {

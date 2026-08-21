@@ -305,6 +305,12 @@ class RushEngine {
   String? lastAbsorbedName;
   double lastAbsorbedAt = -10;
 
+  /// Latest source of damage the flow took. Locked in at the moment integrity
+  /// drops to zero and surfaced on the results screen so the player can see
+  /// exactly what killed the run.
+  DeathCause _lastHitCause = DeathCause.none;
+  String? _lastHitLabel;
+
   // --------------------------------------------------------------- derivation
 
   double get surgeDuration => 1.15 * config.surgeBonus * mods.surgeDurationMul;
@@ -428,6 +434,9 @@ class RushEngine {
   void abandon() {
     if (phase == RushPhase.won || phase == RushPhase.lost) return;
     phase = RushPhase.lost;
+    // Voluntary quit: don't attribute the defeat to whatever last hurt the flow.
+    _lastHitCause = DeathCause.none;
+    _lastHitLabel = null;
     _notifyHud();
   }
 
@@ -769,7 +778,11 @@ class RushEngine {
           _spawnBurst(entity.x, entity.y, 12, Essence.fire);
         case EntityKind.hostileShot:
           entity.dead = true;
-          _hurt(entity.payload);
+          _hurt(
+            entity.payload,
+            cause: DeathCause.bossShot,
+            label: _lookupName(boss?.defId) ?? 'Boss volley',
+          );
         case EntityKind.obstacle:
           final def = GameData.obstacles.firstWhere(
             (o) => o.id == entity.defId,
@@ -778,7 +791,7 @@ class RushEngine {
           if (surging || mods.shatterAnything || mass * config.massBonus >= def.massToBreak) {
             _shatter(entity);
           } else {
-            _hurt(def.damage);
+            _hurt(def.damage, cause: DeathCause.obstacle, label: def.name);
             entity.x += 90;
             heat = math.max(0, heat - 6);
           }
@@ -792,14 +805,22 @@ class RushEngine {
             if (entity.melt >= 1) _absorb(entity);
           } else {
             // Not hot enough: the armour holds and the flow pays for it.
-            _hurt(5 + entity.rarity.index * 2.5);
+            _hurt(
+              5 + entity.rarity.index * 2.5,
+              cause: DeathCause.enemyBody,
+              label: _lookupName(entity.defId),
+            );
             entity.x += 70;
           }
         case EntityKind.boss:
           if (surging || heatRatio >= entity.armor) {
             _damageBoss(entity, dt * absorbRate * 1.5 * (0.5 + heatRatio) * mods.bossDamageMul);
           } else {
-            _hurt(14);
+            _hurt(
+              14,
+              cause: DeathCause.bossBody,
+              label: _lookupName(entity.defId),
+            );
           }
         case EntityKind.coldSeam:
         case EntityKind.playerShard:
@@ -925,7 +946,12 @@ class RushEngine {
     }
   }
 
-  void _hurt(double amount) {
+  String? _lookupName(String? defId) {
+    if (defId == null) return null;
+    return GameData.enemyById[defId]?.name;
+  }
+
+  void _hurt(double amount, {DeathCause cause = DeathCause.none, String? label}) {
     if (surging || _damageCooldown > 0) return;
     final form = activeForm;
     var mitigation = 1 / config.shieldBonus * mods.damageTakenMul;
@@ -941,6 +967,21 @@ class RushEngine {
     _flashHit = 1;
     shake = math.max(shake, 10);
     _spawnBurst(playerX, playerY, 14, null);
+
+    // Remember what landed the hit. If the flow died to a body slam while the
+    // core was almost cold, blame the heat instead of the enemy - that is the
+    // signal the player actually needs.
+    if (cause != DeathCause.none) {
+      var recorded = cause;
+      var recordedLabel = label;
+      if ((cause == DeathCause.enemyBody || cause == DeathCause.bossBody) &&
+          heatRatio < 0.22) {
+        recorded = DeathCause.heatCollapse;
+        recordedLabel = null;
+      }
+      _lastHitCause = recorded;
+      _lastHitLabel = recordedLabel;
+    }
 
     if (mods.thornsDamage > 0) {
       for (final e in entities) {
@@ -1443,6 +1484,8 @@ class RushEngine {
         if (entry.value > 0) entry.key: entry.value,
     },
     formsSeen: formsSeen,
+    deathCause: phase == RushPhase.lost ? _lastHitCause : DeathCause.none,
+    deathLabel: phase == RushPhase.lost ? _lastHitLabel : null,
   );
 
   void dispose() {
