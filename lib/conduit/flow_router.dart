@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import '../main.dart' show firebaseReady;
 import 'config/flow_settings.dart';
 import 'core/trace.dart';
 import 'infra/crust_vault.dart';
@@ -48,7 +51,7 @@ class FlowRouter {
 
     // A notification that launched a terminated app outranks everything: the
     // address is one-shot and a slower check would race it away.
-    final tapped = await LaunchTrail.consume();
+    final tapped = await _consumeColdTap();
     if (tapped != null) {
       await vault.writeRoute(DriftRoute.portal);
       await vault.saveAddress(tapped);
@@ -204,6 +207,53 @@ class FlowRouter {
     );
     if (reply.granted && reply.destination != null) {
       await vault.saveAddress(reply.destination!, expiresAt: reply.expiresAt);
+    }
+  }
+
+  /// Cold-tap URL, from either the scene delegate or Firebase directly.
+  ///
+  /// `SceneDelegate` is the fast path: it parks the address in user defaults
+  /// before Flutter is even alive. But a push whose destination sits under an
+  /// unexpected key (in practice `fcm_options.link` — the FCM v1 web-URL
+  /// fallback), or one iOS delivered through `launchOptions` instead of
+  /// `willConnectTo`, would leave user defaults empty. Without a fallback,
+  /// `_returningPortal` then returns whatever address was cached from the
+  /// previous session (the OneLink, in the QA test), and the notification's
+  /// own URL is silently discarded.
+  ///
+  /// `FirebaseMessaging.getInitialMessage()` covers that gap: on iOS it
+  /// returns the exact push that launched the terminated app, if any. The
+  /// timeout keeps a slow Firebase init from stalling the loader.
+  Future<String?> _consumeColdTap() async {
+    final fromScene = await LaunchTrail.consume();
+    if (fromScene != null) return fromScene;
+
+    // Firebase init runs off to the side of the boot sequence, and
+    // `getInitialMessage()` needs it up before it can answer. A short
+    // deadline keeps a slow init from stalling the loader, but the wait
+    // has to be long enough that a fresh cold-start does not miss the
+    // push. Three seconds is well below the loader's own budget and
+    // covers Firebase warm-up on a released build.
+    try {
+      await firebaseReady.timeout(const Duration(seconds: 2));
+    } on Object catch (error) {
+      trace('router', 'firebase not ready in time: $error');
+      return null;
+    }
+
+    try {
+      final initial = await FirebaseMessaging.instance
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 3));
+      if (initial == null) return null;
+      final address = EmberSignals.addressIn(initial.data);
+      if (address == null || address.isEmpty) return null;
+      LaunchTrail.markConsumed();
+      trace('router', 'cold tap recovered via firebase fallback');
+      return address;
+    } on Object catch (error) {
+      trace('router', 'firebase fallback failed: $error');
+      return null;
     }
   }
 

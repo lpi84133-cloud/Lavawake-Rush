@@ -177,7 +177,12 @@ class EmberSignals {
     final direct = pick(data);
     if (direct != null) return direct;
 
-    for (final nested in <String>['data', 'payload']) {
+    // `fcm_options` is the FCM v1 API home for the web-URL fallback link
+    // (`fcm_options.link`) — a push that carries the destination only under
+    // that key would otherwise be missed here, and `FlowRouter._decide` would
+    // fall back to the saved OneLink address instead of routing to the URL
+    // the notification actually pointed at.
+    for (final nested in <String>['data', 'payload', 'fcm_options']) {
       final branch = data[nested];
       if (branch is Map) {
         final found = pick(branch);

@@ -19,18 +19,17 @@ class SceneDelegate: FlutterSceneDelegate {
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
   ) {
+    // First channel of the cold-tap capture, see AppDelegate for the full
+    // story. When the Firebase AppDelegate proxy is enabled this response
+    // is often nil (FCM consumed it before the scene connects), but on
+    // versions where it isn't we still get the fastest possible path.
     if let response = connectionOptions.notificationResponse {
-      store(SceneDelegate.address(in: response.notification.request.content.userInfo))
+      AppDelegate.parkTrail(
+        from: response.notification.request.content.userInfo,
+        source: "scene"
+      )
     }
     super.scene(scene, willConnectTo: session, options: connectionOptions)
-  }
-
-  private func store(_ address: String?) {
-    guard let address, !address.isEmpty else { return }
-    UserDefaults.standard.set(address, forKey: SceneDelegate.trailKey)
-    #if DEBUG
-      print("[LVR.scene] captured \(address)")
-    #endif
   }
 
   /// Senders disagree on both the key and the nesting, so every shape we have
@@ -47,7 +46,11 @@ class SceneDelegate: FlutterSceneDelegate {
 
     if let direct = pick(payload) { return direct }
 
-    for branch in ["data", "payload"] {
+    // `fcm_options` is where Firebase Cloud Messaging v1 stores the web-URL
+    // fallback (`fcm_options.link`). Missing it here was the reason a cold
+    // tap on a push whose URL sat under that key silently fell through to
+    // the saved OneLink address on next launch.
+    for branch in ["data", "payload", "fcm_options"] {
       if let nested = payload[branch] as? [AnyHashable: Any], let found = pick(nested) {
         return found
       }

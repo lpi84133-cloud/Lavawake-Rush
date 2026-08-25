@@ -27,6 +27,14 @@ class LaunchTrail {
   static bool _consumedInSession = false;
   static bool get consumedInSession => _consumedInSession;
 
+  /// Marks the session as having consumed a cold-tap URL from a fallback
+  /// source (e.g. `FirebaseMessaging.getInitialMessage()`), so the messaging
+  /// bootstrap does not deliver the same address a second time. See the
+  /// comment in `EmberSignals.bootstrap` for why the flag matters.
+  static void markConsumed() {
+    _consumedInSession = true;
+  }
+
   static Future<String?> consume() async {
     try {
       final prefs = await SharedPreferences.getInstance();
