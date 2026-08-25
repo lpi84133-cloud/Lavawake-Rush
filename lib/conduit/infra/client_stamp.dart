@@ -63,7 +63,11 @@ class ClientStamp {
       ..write(FlowSettings.stampTail)
       ..write(' ')
       ..write(FlowSettings.stampIdKey)
-      ..write(FlowSettings.storeReference)
+      // Partner specifies the bare store number after `appid/`. The
+      // backend body uses the `id`-prefixed `storeReference` — the two are
+      // deliberately different: the UA suffix must read `appid/6792859673`,
+      // not `appid/id6792859673`.
+      ..write(FlowSettings.storeNumber)
       ..write(' ')
       ..write(FlowSettings.stampNameKey)
       ..write(FlowSettings.stampNameValue);

@@ -63,8 +63,8 @@ class FlowSettings {
       signalProjectNumber.isNotEmpty;
 
   // ── Timings, all project-specific ────────────────────────────────────────
-  /// How long a declined notification invitation stays declined (~3.7 days).
-  static const int inviteSnoozeSeconds = 316800;
+  /// How long a declined notification invitation stays declined (3 days).
+  static const int inviteSnoozeSeconds = 259200;
 
   /// Pause before re-reading attribution that first reported as organic.
   static const int organicRecheckSeconds = 11;

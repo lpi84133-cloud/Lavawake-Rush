@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../main.dart' show firebaseReady;
 import '../config/flow_settings.dart';
 import '../core/trace.dart';
+import 'launch_trail.dart';
 
 /// Notification plumbing: registration, the token the backend needs to reach
 /// this install, and the address carried by a tapped notification.
@@ -59,10 +60,21 @@ class EmberSignals {
         if (address != null) onAddress?.call(address);
       });
 
-      final initial = await _messaging.getInitialMessage();
-      if (initial != null) {
-        final address = addressIn(initial.data);
-        if (address != null) onAddress?.call(address);
+      // SceneDelegate captures the tapped notification via
+      // `connectionOptions.notificationResponse` and hands it to `LaunchTrail`,
+      // which the router consumes first thing at boot. When multiple pushes
+      // are stacked in Notification Center, iOS occasionally hands Firebase a
+      // *different* notification via `launchOptions[.remoteNotification]`
+      // than the one the user actually tapped, so firing our navigation
+      // callback from `getInitialMessage` overlaid the wrong URL on top of
+      // the correct one. Skip that path when the scene delegate already
+      // consumed the cold tap in this session.
+      if (!LaunchTrail.consumedInSession) {
+        final initial = await _messaging.getInitialMessage();
+        if (initial != null) {
+          final address = addressIn(initial.data);
+          if (address != null) onAddress?.call(address);
+        }
       }
 
       await _collectToken(FlowSettings.tokenPollAttempts);

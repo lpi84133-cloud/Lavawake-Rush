@@ -300,6 +300,14 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
       },
       child: Scaffold(
         backgroundColor: Colors.black,
+        // Letting the Scaffold shrink for the keyboard resizes the WebView
+        // native frame, which is what caused two casino sites to collapse
+        // their input forms (fields overlapping the keyboard in landscape,
+        // fields blanking out to gray when switching focus in portrait).
+        // WKWebView already reports the keyboard through `visualViewport`,
+        // so the site's own layout can lift the focused field without any
+        // help from Flutter's inset arithmetic.
+        resizeToAvoidBottomInset: false,
         body: _canRender
             ? Padding(padding: inset, child: WebViewWidget(controller: _web))
             : const ColoredBox(color: Colors.black),
