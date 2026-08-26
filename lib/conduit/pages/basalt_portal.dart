@@ -97,6 +97,13 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
     return WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      // The stamp MUST be set before the first `loadRequest`. Deferring it
+      // to an async hop after mount used to leave WKWebView on `about:blank`
+      // when a cold-tap arrived — the page never started loading and the
+      // background colour made it look like a hard black screen. Prewarming
+      // in `main()` fills the cache; `snapshot()` falls back to a synthesised
+      // stamp on the very first cold start so nothing here is `null`.
+      ..setUserAgent(ClientStamp.snapshot())
       ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -108,12 +115,30 @@ class _BasaltPortalState extends State<BasaltPortal> with WidgetsBindingObserver
   }
 
   Future<void> _load() async {
+    // Refresh the stamp in the background so the real (device-reported)
+    // release replaces the fallback for the second navigation onwards, but
+    // never block the very first `loadRequest` on it.
+    unawaited(_refreshStampInBackground());
     try {
-      await _web.setUserAgent(await ClientStamp.resolve());
+      await _web.loadRequest(Uri.parse(widget.address));
     } on Object catch (error) {
-      trace('portal', 'stamp not applied: $error');
+      trace('portal', 'load failed: $error');
+      if (mounted && !await ReachCheck.routeUp()) unawaited(_goOffline());
     }
-    await _web.loadRequest(Uri.parse(widget.address));
+  }
+
+  Future<void> _refreshStampInBackground() async {
+    try {
+      // If the cache was already populated by main()'s prewarm, `resolve`
+      // returns immediately with the same value the builder used — nothing
+      // to do. Otherwise it replaces the fallback release with the one
+      // device_info reported, so subsequent requests carry the real stamp.
+      final resolved = await ClientStamp.resolve();
+      if (!mounted) return;
+      await _web.setUserAgent(resolved);
+    } on Object catch (error) {
+      trace('portal', 'stamp refresh failed: $error');
+    }
   }
 
   /// Enter immersive mode, let the viewport settle in the orientation the

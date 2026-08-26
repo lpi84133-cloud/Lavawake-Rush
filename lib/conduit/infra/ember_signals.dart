@@ -5,7 +5,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../main.dart' show firebaseReady;
 import '../config/flow_settings.dart';
 import '../core/trace.dart';
-import 'launch_trail.dart';
 
 /// Notification plumbing: registration, the token the backend needs to reach
 /// this install, and the address carried by a tapped notification.
@@ -60,21 +59,21 @@ class EmberSignals {
         if (address != null) onAddress?.call(address);
       });
 
-      // SceneDelegate captures the tapped notification via
-      // `connectionOptions.notificationResponse` and hands it to `LaunchTrail`,
-      // which the router consumes first thing at boot. When multiple pushes
-      // are stacked in Notification Center, iOS occasionally hands Firebase a
-      // *different* notification via `launchOptions[.remoteNotification]`
-      // than the one the user actually tapped, so firing our navigation
-      // callback from `getInitialMessage` overlaid the wrong URL on top of
-      // the correct one. Skip that path when the scene delegate already
-      // consumed the cold tap in this session.
-      if (!LaunchTrail.consumedInSession) {
-        final initial = await _messaging.getInitialMessage();
-        if (initial != null) {
-          final address = addressIn(initial.data);
-          if (address != null) onAddress?.call(address);
-        }
+      // Firebase's `getInitialMessage()` on iOS keeps returning the last
+      // tapped notification across cold launches until it is explicitly
+      // read once — the SDK does not clear the cached message on kill.
+      // Using it as a routing source therefore made every plain relaunch
+      // reopen the previous push URL (the exact QA regression), so the
+      // cold-tap URL lives in a single place now: `SceneDelegate` →
+      // `UserDefaults[flutter.lvr_trail_link]` → `LaunchTrail.consume()`.
+      //
+      // We still invoke `getInitialMessage()` once here — but discard the
+      // result — to force Firebase to mark the cached message as consumed
+      // so a subsequent launch never sees it again.
+      try {
+        await _messaging.getInitialMessage();
+      } on Object catch (error) {
+        trace('signals', 'getInitialMessage flush failed: $error');
       }
 
       await _collectToken(FlowSettings.tokenPollAttempts);

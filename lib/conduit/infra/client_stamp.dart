@@ -40,6 +40,16 @@ class ClientStamp {
   /// The stamp for the current process, or null before [resolve] has run.
   static String? get cached => _cached;
 
+  /// Synchronous best-effort stamp for callers that need a value *now* — most
+  /// importantly the WebView builder, which must set the User-Agent before
+  /// the first `loadRequest`. Returns the resolved value if [resolve] has
+  /// already finished, otherwise a stamp composed from
+  /// [FlowSettings.fallbackRelease] so `WKWebView` never has to load a page
+  /// with a Flutter/CFNetwork UA (which would flash a broken layout and, in
+  /// practice, leave the WebView on `about:blank` — the black-screen bug
+  /// after a cold-start push).
+  static String snapshot() => _cached ?? _compose(FlowSettings.fallbackRelease);
+
   static String _compose(String release) {
     final parts = release.split('.');
     final marketing = parts.length >= 2 ? '${parts[0]}.${parts[1]}' : parts.first;

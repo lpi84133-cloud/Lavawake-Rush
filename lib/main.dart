@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'conduit/core/trace.dart';
 import 'conduit/flow_router.dart';
+import 'conduit/infra/client_stamp.dart';
 import 'conduit/pages/basalt_portal.dart';
 import 'core/app_config.dart';
 import 'core/design/app_theme.dart';
@@ -47,6 +50,14 @@ Future<void> main() async {
       trace('boot', 'messaging unavailable: $error');
     }
   }();
+
+  // Warm the client stamp so the WebView builder can set the UA
+  // synchronously on cold-tap. Doing this lazily inside the portal's `_load`
+  // used to leave WKWebView on the default `about:blank` (rendered black by
+  // our background colour) if the resolve → setUserAgent hop lost a race
+  // with the first `loadRequest` — this is the "black screen after a push
+  // tap" bug.
+  unawaited(ClientStamp.resolve());
 
   flowRouter.signals.onToken = (token) => flowRouter.resendWithToken(token);
   flowRouter.signals.onAddress = _openFromNotification;
