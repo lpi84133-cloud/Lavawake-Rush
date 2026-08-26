@@ -22,7 +22,6 @@
 		A26D149FB70E5382C4F19B60 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5C0E7B31D8A46F92035BE174 /* GoogleService-Info.plist */; };
 		A9E87C63F564A55EA7D677B1 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 90CD3401E36F7525D0BDCEF2 /* Pods_RunnerTests.framework */; };
 		B75E3C19604AD82FE9315C7D /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E82A70C51DBF6491C74B085 /* NotificationService.swift */; };
-		E9A1D0F1B94726A853D14F02 /* NotificationIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = E9A1D0F1B94726A853D14F01 /* NotificationIcon.png */; };
 		C24508C8CC9B00B2C8E7FB37 /* Pods_NotificationService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8AAC7EFD141540911D7994B /* Pods_NotificationService.framework */; };
 /* End PBXBuildFile section */
 
@@ -76,7 +75,6 @@
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		3E82A70C51DBF6491C74B085 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
-		E9A1D0F1B94726A853D14F01 /* NotificationIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NotificationIcon.png; sourceTree = "<group>"; };
 		3F91C5E70B2A648D19E7C4B2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		52BA77AC66056367419B96E4 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		5C0E7B31D8A46F92035BE174 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -230,7 +228,6 @@
 			isa = PBXGroup;
 			children = (
 				3E82A70C51DBF6491C74B085 /* NotificationService.swift */,
-				E9A1D0F1B94726A853D14F01 /* NotificationIcon.png */,
 				9D470B6EC2A85F3378126EAB /* Info.plist */,
 			);
 			path = LavaEmberService;
@@ -363,7 +360,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E9A1D0F1B94726A853D14F02 /* NotificationIcon.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

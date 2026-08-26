@@ -51,10 +51,16 @@ class FlowRouter {
 
     // A notification that launched a terminated app outranks everything: the
     // address is one-shot and a slower check would race it away.
+    //
+    // The push URL is deliberately NOT persisted here: it belongs to this
+    // launch only. Writing it to the vault would cause the next cold launch
+    // (without a push) to replay the same one-shot address through
+    // `_returningPortal`, which is what QA reported as "the special screen
+    // reopens on relaunch". The saved OneLink / config destination from
+    // earlier launches is left untouched so a plain relaunch still lands
+    // on the correct portal.
     final tapped = await _consumeColdTap();
     if (tapped != null) {
-      await vault.writeRoute(DriftRoute.portal);
-      await vault.saveAddress(tapped);
       unawaited(_catchUpInBackground());
       return DriftDestination.portal(tapped, fromNotification: true);
     }
