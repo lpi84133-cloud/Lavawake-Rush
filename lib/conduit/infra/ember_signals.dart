@@ -24,6 +24,7 @@ class EmberSignals {
   String? _token;
   StreamSubscription<String>? _refresh;
   StreamSubscription<RemoteMessage>? _opened;
+  Future<void>? _bootFuture;
 
   /// Fired when a token first becomes available after the pipeline already
   /// asked the backend without one.
@@ -34,7 +35,12 @@ class EmberSignals {
 
   String? get token => _token;
 
-  Future<void> bootstrap() async {
+  /// Once per process. Concurrent callers share the same future so
+  /// `getInitialMessage` is invoked exactly once — a second read on iOS can
+  /// still return the previous tap until the SDK marks it consumed.
+  Future<void> bootstrap() => _bootFuture ??= _boot();
+
+  Future<void> _boot() async {
     try {
       // Firebase.initializeApp() runs in parallel with the first frame so the
       // loading screen paints faster. Everything below reaches for a
@@ -54,22 +60,19 @@ class EmberSignals {
         onToken?.call(value);
       });
 
+      // Warm tap only: the app is already alive, so push the destination
+      // into the open WebView. Do not persist the URL — a write here would
+      // replay the special screen on the next icon-tap launch.
       _opened ??= FirebaseMessaging.onMessageOpenedApp.listen((message) {
         final address = addressIn(message.data);
         if (address != null) onAddress?.call(address);
       });
 
-      // Firebase's `getInitialMessage()` on iOS keeps returning the last
-      // tapped notification across cold launches until it is explicitly
-      // read once — the SDK does not clear the cached message on kill.
-      // Using it as a routing source therefore made every plain relaunch
-      // reopen the previous push URL (the exact QA regression), so the
-      // cold-tap URL lives in a single place now: `SceneDelegate` →
-      // `UserDefaults[flutter.lvr_trail_link]` → `LaunchTrail.consume()`.
-      //
-      // We still invoke `getInitialMessage()` once here — but discard the
-      // result — to force Firebase to mark the cached message as consumed
-      // so a subsequent launch never sees it again.
+      // Acknowledgement only. `getInitialMessage` on iOS keeps returning the
+      // last tapped notification across cold launches until it is read once;
+      // routing from it (or stashing it) is what reopened the special screen
+      // on a plain relaunch. Discard the result so the SDK marks the message
+      // consumed and the next launch returns null.
       try {
         await _messaging.getInitialMessage();
       } on Object catch (error) {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/trace.dart';
@@ -5,10 +7,12 @@ import '../core/trace.dart';
 /// Reads the address captured by `SceneDelegate` when a notification launched
 /// a terminated app.
 ///
-/// Firebase never sees that tap — the scene delegate receives it instead — so
-/// the native side parks the address in user defaults and this is where the
-/// Dart side picks it up. The value is one-shot: reading it clears it, so a
-/// later launch cannot replay an old notification.
+/// On UIScene the Dart isolate can start before
+/// `scene(_:willConnectTo:options:)` has written the URL, so a single
+/// `getString` races and returns null — the router then falls through to the
+/// cached WebView page. The reader therefore reloads preferences and retries
+/// for ~400 ms (8 × 50 ms). The value is one-shot: the first successful read
+/// deletes the key, so a later launch cannot replay an old notification.
 ///
 /// The key must stay identical to `SceneDelegate.trailKey`, including the
 /// `flutter.` prefix that bridges user defaults to preferences.
@@ -16,35 +20,26 @@ class LaunchTrail {
   const LaunchTrail._();
 
   static const String _key = 'lvr_trail_link';
-
-  /// True once the scene-delegate address has been consumed in this process.
-  /// Reset only by a full app restart. Callers on the messaging side use it
-  /// to skip `getInitialMessage`, which on iOS occasionally returns a
-  /// different notification than the one the user actually tapped when a
-  /// stack of pushes is delivered simultaneously — firing our navigation
-  /// callback with that wrong address is what caused the "opens the start
-  /// page" bug.
-  static bool _consumedInSession = false;
-  static bool get consumedInSession => _consumedInSession;
-
-  /// Marks the session as having consumed a cold-tap URL from a fallback
-  /// source (e.g. `FirebaseMessaging.getInitialMessage()`), so the messaging
-  /// bootstrap does not deliver the same address a second time. See the
-  /// comment in `EmberSignals.bootstrap` for why the flag matters.
-  static void markConsumed() {
-    _consumedInSession = true;
-  }
+  static const int _attempts = 8;
+  static const Duration _step = Duration(milliseconds: 50);
 
   static Future<String?> consume() async {
+    if (!Platform.isIOS) return null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final address = prefs.getString(_key);
-      if (address == null || address.isEmpty) return null;
-
-      await prefs.remove(_key);
-      _consumedInSession = true;
-      trace('trail', 'consumed $address');
-      return address;
+      for (var attempt = 0; attempt < _attempts; attempt++) {
+        await prefs.reload();
+        final address = prefs.getString(_key)?.trim();
+        if (address != null && address.isNotEmpty) {
+          await prefs.remove(_key);
+          trace('trail', 'consumed $address');
+          return address;
+        }
+        if (attempt < _attempts - 1) {
+          await Future<void>.delayed(_step);
+        }
+      }
+      return null;
     } on Object catch (error) {
       trace('trail', 'unreadable: $error');
       return null;

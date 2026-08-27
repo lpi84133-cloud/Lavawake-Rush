@@ -57,6 +57,11 @@ class FlowRouter {
     // earlier launches is left untouched so a plain relaunch still lands
     // on the correct portal.
     final tapped = await LaunchTrail.consume();
+    // Messaging boot (and the one-shot `getInitialMessage` ack) must run on
+    // every launch, including a successful cold-tap — otherwise the iOS SDK
+    // keeps the previous tap cached and a later reader can see it. The
+    // result is discarded inside `bootstrap`; it never drives routing.
+    unawaited(signals.bootstrap());
     if (tapped != null) {
       unawaited(_catchUpInBackground());
       return DriftDestination.portal(tapped, fromNotification: true);

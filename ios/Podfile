@@ -28,7 +28,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
@@ -40,9 +40,9 @@ end
 # version has to match the one firebase_core resolves for Runner, or the two
 # disagree at link time.
 target 'NotificationService' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
   platform :ios, '15.0'
-  pod 'Firebase/Messaging', '12.17.0'
+  pod 'Firebase/Messaging', '12.18.0'
 end
 
 post_install do |installer|
